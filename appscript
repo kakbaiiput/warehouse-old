@@ -1,0 +1,2895 @@
+// ========== APPS SCRIPT API BACKEND LENGKAP - DENGAN PRODUCT_ID SYSTEM & DATA MANAGEMENT ==========
+
+// Handle OPTIONS requests for CORS preflight
+function doOptions() {
+  return HtmlService.createHtmlOutput()
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// Handle GET requests (untuk test dan read data)
+function doGet(e) {
+  // Handle empty request
+  if (!e || !e.parameter) {
+    return createCORSResponse({
+      success: true,
+      message: 'Dimsum Inventory API is running with Product_ID system!',
+      timestamp: new Date(),
+      usage: 'Add ?action=test to test the API',
+      availableActions: ['test', 'getMasterData', 'getDashboardData']
+    });
+  }
+  
+  const action = e.parameter.action || 'none';
+  const callback = e.parameter.callback; // For JSONP
+  const data = e.parameter.data; // For GET data submission
+  
+  // Debug logging
+  console.log('doGet called with action:', action);
+  
+  try {
+    let response;
+    
+    switch(action) {
+      case 'getMasterData':
+        response = getMasterDataWithID();
+        break;
+      case 'getDashboardData':
+        response = getDashboardDataOptimized();
+        break;
+      case 'getFullMasukData':
+        response = getFullMasukData();
+        break;
+      case 'getFullKeluarData':
+        response = getFullKeluarData();
+        break;
+      case 'getAverageCosts':
+        response = getAverageCostsOptimized();
+        break;
+      case 'saveBarangMasuk':
+        if (data) {
+          response = saveBarangMasukWithID(JSON.parse(decodeURIComponent(data)));
+        } else {
+          response = { success: false, message: 'No data provided for saveBarangMasuk' };
+        }
+        break;
+      case 'saveBarangKeluar':
+        if (data) {
+          response = saveBarangKeluarWithID(JSON.parse(decodeURIComponent(data)));
+        } else {
+          response = { success: false, message: 'No data provided for saveBarangKeluar' };
+        }
+        break;
+      case 'saveKeuangan':
+        if (data) {
+          response = saveKeuangan(JSON.parse(decodeURIComponent(data)));
+        } else {
+          response = { success: false, message: 'No data provided for saveKeuangan' };
+        }
+        break;
+      case 'setupProductIDs':
+        response = setupProductIDSystem();
+        break;
+      case 'test':
+        response = { 
+          success: true, 
+          message: 'API Backend with Product_ID system is working!', 
+          timestamp: new Date(),
+          receivedAction: action
+        };
+        break;
+      default:
+        response = { 
+          success: false, 
+          message: 'Invalid action: ' + action,
+          availableActions: ['test', 'getMasterData', 'getDashboardData', 'setupProductIDs', 'saveBarangMasuk', 'saveBarangKeluar', 'saveKeuangan']
+        };
+    }
+    
+    // Return JSONP if callback provided
+    if (callback) {
+      return ContentService
+        .createTextOutput(`${callback}(${JSON.stringify(response)})`)
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    
+    return createCORSResponse(response);
+    
+  } catch (error) {
+    console.error('doGet error:', error);
+    const errorResponse = { 
+      success: false, 
+      message: 'Server Error: ' + error.toString(),
+      action: action
+    };
+    
+    if (callback) {
+      return ContentService
+        .createTextOutput(`${callback}(${JSON.stringify(errorResponse)})`)
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    
+    return createCORSResponse(errorResponse);
+  }
+}
+
+// Handle POST requests
+function doPost(e) {
+  try {
+    const postData = JSON.parse(e.postData.contents);
+    const action = postData.action;
+    
+    let response;
+    
+    switch(action) {
+      case 'saveBarangMasuk':
+        response = saveBarangMasukWithID(postData.data);
+        break;
+      case 'saveBarangKeluar':
+        response = saveBarangKeluarWithID(postData.data);
+        break;
+      case 'saveKeuangan':
+        response = saveKeuangan(postData.data);
+        break;
+      case 'setupInitialData':
+        response = setupInitialData();
+        break;
+      case 'setupProductIDs':
+        response = setupProductIDSystem();
+        break;
+      default:
+        response = { 
+          success: false, 
+          message: 'Invalid POST action: ' + action
+        };
+    }
+    
+    return createCORSResponse(response);
+    
+  } catch (error) {
+    console.error('doPost error:', error);
+    return createCORSResponse({ 
+      success: false, 
+      message: 'Server Error: ' + error.toString() 
+    });
+  }
+}
+
+// Create CORS-enabled response
+function createCORSResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ========== MENU SYSTEM (OTOMATIS MUNCUL DI GOOGLE SHEETS) ==========
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('🛠️ Data Management')
+    .addItem('🆔 Setup Product_ID System', 'setupProductIDSystem')
+    .addItem('🔄 Migrate Existing Data', 'migrateExistingData')
+    .addSeparator()
+    .addItem('↩️ Rollback Migration', 'rollbackMigration')
+    .addItem('🧹 Clean Orphan Codes', 'cleanOrphanedProductCodes')
+    .addItem('📊 Refresh Stok Real', 'updateStokRealOptimized')
+    .addSeparator()
+    .addItem('🔧 Fix Corrupted Data', 'fixCorruptedData')
+    .addItem('🔍 Find Missing Products', 'findMissingProducts')
+    .addItem('📋 Create Backup', 'createDataBackup')
+    .addToUi();
+}
+
+// ========== PRODUCT_ID SYSTEM FUNCTIONS ==========
+
+function setupProductIDSystem() {
+  try {
+    console.log('Setting up Product_ID system...');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    
+    if (!produkSheet) {
+      return { success: false, message: 'MASTER_PRODUK sheet not found' };
+    }
+    
+    // Cek apakah kolom Product_ID sudah ada
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    if (headers.includes('Product_ID')) {
+      return { success: false, message: 'Product_ID system already exists' };
+    }
+    
+    // Insert kolom baru di posisi A (menggeser semua ke kanan)
+    produkSheet.insertColumnBefore(1);
+    
+    // Update header
+    produkSheet.getRange(1, 1, 1, produkSheet.getLastColumn()).merge();
+    produkSheet.getRange(1, 1).setValue('DATA MASTER PRODUK');
+    produkSheet.getRange(2, 1).setValue('Product_ID');
+    produkSheet.getRange(2, 2).setValue('Kode');
+    produkSheet.getRange(2, 3).setValue('Nama_Produk');
+    produkSheet.getRange(2, 4).setValue('Kemasan');
+    produkSheet.getRange(2, 5).setValue('Harga_Ref');
+    produkSheet.getRange(2, 6).setValue('Min_Stok');
+    produkSheet.getRange(2, 7).setValue('Status');
+    
+    // Generate unique IDs untuk produk yang ada
+    const data = produkSheet.getDataRange().getValues();
+    let idCounter = 1;
+    
+    for (let i = 3; i < data.length; i++) { // Start from row 4 (after title, header, note)
+      if (data[i][1] && data[i][1] !== '') { // Jika ada kode produk di kolom B (dulu kolom A)
+        const uniqueId = `PID${String(idCounter).padStart(3, '0')}`; // PID001, PID002, etc.
+        produkSheet.getRange(i + 1, 1).setValue(uniqueId);
+        idCounter++;
+      }
+    }
+    
+    // Format header baru
+    try {
+      formatSheetHeader(produkSheet, produkSheet.getRange('A2:G2'), produkSheet.getRange('A1:G1'), '#34a853');
+    } catch (formatError) {
+      console.log('Header format error:', formatError.toString());
+    }
+    
+    console.log('Product_ID system setup completed');
+    
+    return { 
+      success: true, 
+      message: 'Product_ID system berhasil disetup! Sekarang setiap produk memiliki ID unik yang permanen.',
+      productsUpdated: idCounter - 1
+    };
+    
+  } catch (error) {
+    console.error('setupProductIDSystem error:', error.toString());
+    return { 
+      success: false, 
+      message: 'Setup Product_ID failed: ' + error.toString() 
+    };
+  }
+}
+
+// ========== DATA MIGRATION FUNCTIONS ==========
+
+function migrateExistingData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    
+    // Cek apakah Product_ID sudah ada
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    if (!headers.includes('Product_ID')) {
+      throw new Error('Product_ID system belum disetup. Jalankan setupProductIDSystem() dulu.');
+    }
+    
+    console.log('Starting data migration...');
+    
+    // Buat mapping dari kode lama ke Product_ID
+    const produkData = produkSheet.getDataRange().getValues().slice(3); // Skip title, header, note
+    const kodeToProductID = {};
+    
+    produkData.forEach(row => {
+      const productID = row[0]; // Product_ID di kolom A
+      const kode = row[1];      // Kode di kolom B
+      if (productID && kode) {
+        kodeToProductID[kode] = productID;
+      }
+    });
+    
+    console.log('Product mapping created:', kodeToProductID);
+    
+    let updatedMasuk = 0;
+    let updatedKeluar = 0;
+    
+    // Update BARANG_MASUK - ganti kode dengan Product_ID
+    const masukData = masukSheet.getDataRange().getValues();
+    for (let i = 2; i < masukData.length; i++) { // Skip title and header
+      const currentKode = masukData[i][3]; // Column D = Kode_Produk
+      const productID = kodeToProductID[currentKode];
+      
+      if (productID && currentKode !== productID) {
+        masukSheet.getRange(i + 1, 4).setValue(productID); // Update to Product_ID
+        updatedMasuk++;
+        console.log(`Updated MASUK row ${i + 1}: ${currentKode} → ${productID}`);
+      }
+    }
+    
+    // Update BARANG_KELUAR - ganti kode dengan Product_ID
+    const keluarData = keluarSheet.getDataRange().getValues();
+    for (let i = 2; i < keluarData.length; i++) { // Skip title and header
+      const currentKode = keluarData[i][3]; // Column D = Kode_Produk
+      const productID = kodeToProductID[currentKode];
+      
+      if (productID && currentKode !== productID) {
+        keluarSheet.getRange(i + 1, 4).setValue(productID); // Update to Product_ID
+        updatedKeluar++;
+        console.log(`Updated KELUAR row ${i + 1}: ${currentKode} → ${productID}`);
+      }
+    }
+    
+    // Update header labels untuk clarity
+    masukSheet.getRange(2, 4).setValue('Product_Ref'); // Was Kode_Produk
+    keluarSheet.getRange(2, 4).setValue('Product_Ref'); // Was Kode_Produk
+    
+    // Refresh stok
+    updateStokRealOptimized();
+    
+    const message = `✅ Migrasi berhasil!\n\n` +
+                   `📥 BARANG_MASUK: ${updatedMasuk} records updated\n` +
+                   `📤 BARANG_KELUAR: ${updatedKeluar} records updated\n\n` +
+                   `Sekarang semua transaksi menggunakan Product_ID yang stabil.`;
+    
+    Browser.msgBox('Migration Complete!', message, Browser.Buttons.OK);
+    
+    return {
+      success: true,
+      message: message,
+      stats: {
+        updatedMasuk: updatedMasuk,
+        updatedKeluar: updatedKeluar,
+        mappings: Object.keys(kodeToProductID).length
+      }
+    };
+    
+  } catch (error) {
+    const errorMsg = 'Migration failed: ' + error.toString();
+    Browser.msgBox('Migration Error', errorMsg, Browser.Buttons.OK);
+    console.error('Migration error:', error);
+    return {
+      success: false,
+      message: errorMsg
+    };
+  }
+}
+
+function rollbackMigration() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    
+    const confirm = Browser.msgBox('Rollback Confirmation', 
+      'Apakah yakin ingin rollback ke system kode lama?\n\nIni akan:\n- Menghapus kolom Product_ID\n- Mengembalikan semua referensi ke kode produk\n- TIDAK BISA DI-UNDO!', 
+      Browser.Buttons.YES_NO);
+    
+    if (confirm !== 'yes') return;
+    
+    // Buat mapping dari Product_ID ke kode
+    const produkData = produkSheet.getDataRange().getValues().slice(3);
+    const productIDToKode = {};
+    
+    produkData.forEach(row => {
+      const productID = row[0];
+      const kode = row[1];
+      if (productID && kode) {
+        productIDToKode[productID] = kode;
+      }
+    });
+    
+    // Update transaksi masuk
+    const masukData = masukSheet.getDataRange().getValues();
+    for (let i = 2; i < masukData.length; i++) {
+      const currentRef = masukData[i][3];
+      const kode = productIDToKode[currentRef];
+      
+      if (kode && currentRef !== kode) {
+        masukSheet.getRange(i + 1, 4).setValue(kode);
+      }
+    }
+    
+    // Update transaksi keluar
+    const keluarData = keluarSheet.getDataRange().getValues();
+    for (let i = 2; i < keluarData.length; i++) {
+      const currentRef = keluarData[i][3];
+      const kode = productIDToKode[currentRef];
+      
+      if (kode && currentRef !== kode) {
+        keluarSheet.getRange(i + 1, 4).setValue(kode);
+      }
+    }
+    
+    // Hapus kolom Product_ID dari MASTER_PRODUK
+    produkSheet.deleteColumn(1);
+    
+    // Update headers
+    produkSheet.getRange(2, 1).setValue('Kode');
+    masukSheet.getRange(2, 4).setValue('Kode_Produk');
+    keluarSheet.getRange(2, 4).setValue('Kode_Produk');
+    
+    // Refresh stok
+    updateStokRealOptimized();
+    
+    Browser.msgBox('Rollback Complete!', 
+      '✅ System berhasil dikembalikan ke kode lama.\n\nSemua Product_ID sudah dihapus dan diganti dengan kode asli.', 
+      Browser.Buttons.OK);
+    
+  } catch (error) {
+    Browser.msgBox('Rollback Error', 'Rollback failed: ' + error.toString(), Browser.Buttons.OK);
+  }
+}
+
+// ========== DATA VALIDATION & REPAIR FUNCTIONS ==========
+
+function cleanOrphanedProductCodes() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    
+    // Ambil semua kode produk yang valid dari master
+    const produkData = produkSheet.getDataRange().getValues().slice(3); // Skip title, header, note
+    const validCodes = new Set();
+    
+    // Check if using Product_ID system
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    const hasProductID = headers.includes('Product_ID');
+    
+    produkData.forEach(row => {
+      if (hasProductID) {
+        validCodes.add(row[0]); // Product_ID
+        validCodes.add(row[1]); // Kode
+      } else {
+        validCodes.add(row[0]); // Kode only
+      }
+    });
+    
+    // Cari kode orphan di transaksi masuk
+    const masukData = masukSheet.getDataRange().getValues().slice(2); // Skip title, header
+    const orphanedMasuk = [];
+    masukData.forEach((row, index) => {
+      const code = row[3]; // Column D = Kode_Produk/Product_Ref
+      if (code && !validCodes.has(code)) {
+        orphanedMasuk.push({row: index + 3, code: code, data: row});
+      }
+    });
+    
+    // Cari kode orphan di transaksi keluar
+    const keluarData = keluarSheet.getDataRange().getValues().slice(2); // Skip title, header
+    const orphanedKeluar = [];
+    keluarData.forEach((row, index) => {
+      const code = row[3]; // Column D = Kode_Produk/Product_Ref
+      if (code && !validCodes.has(code)) {
+        orphanedKeluar.push({row: index + 3, code: code, data: row});
+      }
+    });
+    
+    if (orphanedMasuk.length === 0 && orphanedKeluar.length === 0) {
+      Browser.msgBox('Bersih!', 'Tidak ada kode produk orphan ditemukan.', Browser.Buttons.OK);
+      return;
+    }
+    
+    // Tampilkan laporan
+    let report = 'DITEMUKAN KODE PRODUK ORPHAN:\n\n';
+    
+    if (orphanedMasuk.length > 0) {
+      report += `📥 BARANG MASUK (${orphanedMasuk.length} record):\n`;
+      orphanedMasuk.forEach(item => {
+        report += `- Row ${item.row}: ${item.code} (${item.data[1]}, ${item.data[2]})\n`;
+      });
+      report += '\n';
+    }
+    
+    if (orphanedKeluar.length > 0) {
+      report += `📤 BARANG KELUAR (${orphanedKeluar.length} record):\n`;
+      orphanedKeluar.forEach(item => {
+        report += `- Row ${item.row}: ${item.code} (${item.data[1]}, ${item.data[2]})\n`;
+      });
+    }
+    
+    report += '\nSilakan perbaiki manual atau gunakan fungsi Fix Corrupted Data';
+    
+    Browser.msgBox('Laporan Orphan Code', report, Browser.Buttons.OK);
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Terjadi kesalahan: ' + error.toString(), Browser.Buttons.OK);
+  }
+}
+
+function fixCorruptedData() {
+  try {
+    console.log('Starting corrupted data fix...');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Step 1: Backup dulu
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    const backupFile = ss.copy(`BACKUP_BEFORE_FIX_${timestamp}`);
+    console.log('Backup created:', backupFile.getName());
+    
+    // Step 2: Analisis masalah
+    const analysisResult = analyzeDataIntegrity();
+    console.log('Analysis result:', analysisResult);
+    
+    if (analysisResult.criticalIssues.length === 0) {
+      Browser.msgBox('Data Check', 'Data sudah konsisten, tidak perlu perbaikan.', Browser.Buttons.OK);
+      return;
+    }
+    
+    // Step 3: Tampilkan report masalah
+    let reportMessage = 'MASALAH YANG DITEMUKAN:\n\n';
+    analysisResult.criticalIssues.forEach((issue, index) => {
+      reportMessage += `${index + 1}. ${issue}\n`;
+    });
+    reportMessage += '\nApakah ingin melanjutkan perbaikan otomatis?';
+    
+    const confirm = Browser.msgBox('Data Integrity Issues', reportMessage, Browser.Buttons.YES_NO);
+    if (confirm !== 'yes') return;
+    
+    // Step 4: Setup Product_ID system jika belum ada
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    
+    if (!headers.includes('Product_ID')) {
+      console.log('Setting up Product_ID system...');
+      const setupResult = setupProductIDSystem();
+      if (!setupResult.success) {
+        throw new Error('Failed to setup Product_ID: ' + setupResult.message);
+      }
+    }
+    
+    // Step 5: Buat mapping yang benar
+    const correctMapping = createCorrectMapping();
+    console.log('Correct mapping created:', correctMapping);
+    
+    // Step 6: Fix transaksi yang salah
+    const fixResults = fixTransactionReferences(correctMapping);
+    console.log('Fix results:', fixResults);
+    
+    // Step 7: Rebuild stok dari awal
+    updateStokRealOptimized();
+    
+    // Step 8: Final verification
+    const finalCheck = analyzeDataIntegrity();
+    
+    const successMessage = `✅ PERBAIKAN BERHASIL!\n\n` +
+                          `📋 Backup: ${backupFile.getName()}\n` +
+                          `🔧 Fixed MASUK: ${fixResults.fixedMasuk} records\n` +
+                          `🔧 Fixed KELUAR: ${fixResults.fixedKeluar} records\n` +
+                          `📊 Remaining issues: ${finalCheck.criticalIssues.length}\n\n` +
+                          `Data sekarang menggunakan Product_ID yang stabil.`;
+    
+    Browser.msgBox('Fix Complete!', successMessage, Browser.Buttons.OK);
+    
+    return {
+      success: true,
+      message: successMessage,
+      backup: backupFile.getName(),
+      fixResults: fixResults
+    };
+    
+  } catch (error) {
+    Browser.msgBox('Fix Error', 'Perbaikan gagal: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+function analyzeDataIntegrity() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+  const masukSheet = ss.getSheetByName('BARANG_MASUK');
+  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+  
+  const criticalIssues = [];
+  const warnings = [];
+  
+  // Check 1: Product_ID system
+  const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+  if (!headers.includes('Product_ID')) {
+    criticalIssues.push('Product_ID system belum disetup');
+  }
+  
+  // Check 2: Orphaned product codes
+  const validCodes = new Set();
+  const produkData = produkSheet.getDataRange().getValues().slice(3);
+  
+  produkData.forEach(row => {
+    if (headers.includes('Product_ID')) {
+      validCodes.add(row[0]); // Product_ID
+      validCodes.add(row[1]); // Kode
+    } else {
+      validCodes.add(row[0]); // Kode only
+    }
+  });
+  
+  // Check transactions for orphaned codes
+  const masukData = masukSheet.getDataRange().getValues().slice(2);
+  const keluarData = keluarSheet.getDataRange().getValues().slice(2);
+  
+  let orphanedMasuk = 0;
+  let orphanedKeluar = 0;
+  
+  masukData.forEach(row => {
+    if (row[3] && !validCodes.has(row[3])) {
+      orphanedMasuk++;
+    }
+  });
+  
+  keluarData.forEach(row => {
+    if (row[3] && !validCodes.has(row[3])) {
+      orphanedKeluar++;
+    }
+  });
+  
+  if (orphanedMasuk > 0) {
+    criticalIssues.push(`${orphanedMasuk} transaksi MASUK dengan kode produk tidak valid`);
+  }
+  
+  if (orphanedKeluar > 0) {
+    criticalIssues.push(`${orphanedKeluar} transaksi KELUAR dengan kode produk tidak valid`);
+  }
+  
+  return {
+    criticalIssues,
+    warnings,
+    stats: {
+      totalProducts: produkData.length,
+      totalMasuk: masukData.length,
+      totalKeluar: keluarData.length,
+      orphanedMasuk,
+      orphanedKeluar
+    }
+  };
+}
+
+function createCorrectMapping() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+  
+  const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+  const produkData = produkSheet.getDataRange().getValues().slice(3);
+  
+  const mapping = {
+    codeToProductID: {},
+    productIDToCode: {},
+    validReferences: new Set()
+  };
+  
+  produkData.forEach(row => {
+    if (headers.includes('Product_ID')) {
+      const productID = row[0];
+      const code = row[1];
+      
+      if (productID && code) {
+        mapping.codeToProductID[code] = productID;
+        mapping.productIDToCode[productID] = code;
+        mapping.validReferences.add(productID);
+        mapping.validReferences.add(code);
+      }
+    } else {
+      const code = row[0];
+      if (code) {
+        mapping.validReferences.add(code);
+      }
+    }
+  });
+  
+  return mapping;
+}
+
+function fixTransactionReferences(mapping) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const masukSheet = ss.getSheetByName('BARANG_MASUK');
+  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+  
+  let fixedMasuk = 0;
+  let fixedKeluar = 0;
+  
+  // Fix BARANG_MASUK
+  const masukData = masukSheet.getDataRange().getValues();
+  for (let i = 2; i < masukData.length; i++) {
+    const currentRef = masukData[i][3];
+    
+    if (!mapping.validReferences.has(currentRef)) {
+      // Try to find similar code
+      const possibleMatches = Object.keys(mapping.codeToProductID).filter(code => 
+        code.toLowerCase().includes(currentRef.toLowerCase()) ||
+        currentRef.toLowerCase().includes(code.toLowerCase())
+      );
+      
+      if (possibleMatches.length === 1) {
+        const correctProductID = mapping.codeToProductID[possibleMatches[0]];
+        masukSheet.getRange(i + 1, 4).setValue(correctProductID);
+        fixedMasuk++;
+        console.log(`Fixed MASUK row ${i + 1}: ${currentRef} → ${correctProductID}`);
+      }
+    } else if (mapping.codeToProductID[currentRef]) {
+      // Convert code to Product_ID if needed
+      const productID = mapping.codeToProductID[currentRef];
+      masukSheet.getRange(i + 1, 4).setValue(productID);
+      fixedMasuk++;
+    }
+  }
+  
+  // Fix BARANG_KELUAR
+  const keluarData = keluarSheet.getDataRange().getValues();
+  for (let i = 2; i < keluarData.length; i++) {
+    const currentRef = keluarData[i][3];
+    
+    if (!mapping.validReferences.has(currentRef)) {
+      // Try to find similar code
+      const possibleMatches = Object.keys(mapping.codeToProductID).filter(code => 
+        code.toLowerCase().includes(currentRef.toLowerCase()) ||
+        currentRef.toLowerCase().includes(code.toLowerCase())
+      );
+      
+      if (possibleMatches.length === 1) {
+        const correctProductID = mapping.codeToProductID[possibleMatches[0]];
+        keluarSheet.getRange(i + 1, 4).setValue(correctProductID);
+        fixedKeluar++;
+        console.log(`Fixed KELUAR row ${i + 1}: ${currentRef} → ${correctProductID}`);
+      }
+    } else if (mapping.codeToProductID[currentRef]) {
+      // Convert code to Product_ID if needed
+      const productID = mapping.codeToProductID[currentRef];
+      keluarSheet.getRange(i + 1, 4).setValue(productID);
+      fixedKeluar++;
+    }
+  }
+  
+  return { fixedMasuk, fixedKeluar };
+}
+
+function findMissingProducts() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+  const masukSheet = ss.getSheetByName('BARANG_MASUK');
+  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+  
+  // Get valid product references
+  const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+  const produkData = produkSheet.getDataRange().getValues().slice(3);
+  const validRefs = new Set();
+  
+  produkData.forEach(row => {
+    if (headers.includes('Product_ID')) {
+      validRefs.add(row[0]); // Product_ID
+      validRefs.add(row[1]); // Code
+    } else {
+      validRefs.add(row[0]); // Code only
+    }
+  });
+  
+  // Find all references in transactions
+  const allTransactionRefs = new Set();
+  
+  masukSheet.getDataRange().getValues().slice(2).forEach(row => {
+    if (row[3]) allTransactionRefs.add(row[3]);
+  });
+  
+  keluarSheet.getDataRange().getValues().slice(2).forEach(row => {
+    if (row[3]) allTransactionRefs.add(row[3]);
+  });
+  
+  // Find missing products
+  const missingProducts = [];
+  allTransactionRefs.forEach(ref => {
+    if (!validRefs.has(ref)) {
+      missingProducts.push(ref);
+    }
+  });
+  
+  if (missingProducts.length > 0) {
+    const message = `PRODUK TIDAK DITEMUKAN DI MASTER:\n\n${missingProducts.join('\n')}\n\nTambahkan produk ini ke MASTER_PRODUK atau perbaiki referensi di transaksi.`;
+    Browser.msgBox('Missing Products', message, Browser.Buttons.OK);
+  } else {
+    Browser.msgBox('Check Complete', 'Semua produk di transaksi sudah ada di master.', Browser.Buttons.OK);
+  }
+  
+  return missingProducts;
+}
+
+function createDataBackup() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    
+    // Copy spreadsheet
+    const backupFile = ss.copy(`BACKUP_Inventory_${timestamp}`);
+    
+    Browser.msgBox('Backup Berhasil!', 
+      `✅ Backup dibuat dengan nama:\nBACKUP_Inventory_${timestamp}\n\nFile backup tersimpan di Google Drive Anda.`, 
+      Browser.Buttons.OK);
+    
+    return backupFile.getId();
+  } catch (error) {
+    Browser.msgBox('Error', 'Gagal membuat backup: ' + error.toString(), Browser.Buttons.OK);
+  }
+}
+
+// ========== CORE API FUNCTIONS ==========
+
+function getMasterDataWithID() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    const cabangSheet = ss.getSheetByName('MASTER_CABANG');
+    
+    if (!produkSheet || !cabangSheet) {
+      return { 
+        success: false, 
+        message: 'Master data sheets not found. Please run setup first.' 
+      };
+    }
+    
+    // Cek apakah menggunakan Product_ID system
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    const hasProductID = headers.includes('Product_ID');
+    
+    // Skip title (row 1), header (row 2) and note (row 3), get data from row 4 onwards
+    const allProdukData = produkSheet.getDataRange().getValues();
+    const produkData = allProdukData.slice(3); // Skip rows 1, 2, 3
+    
+    // Skip title (row 1) and header (row 2), get data from row 3 onwards
+    const allCabangData = cabangSheet.getDataRange().getValues();
+    const cabangData = allCabangData.slice(2); // Skip rows 1, 2
+    
+    return {
+      success: true,
+      data: {
+        produk: produkData,
+        cabang: cabangData
+      },
+      hasProductID: hasProductID,
+      headers: headers
+    };
+  } catch (error) {
+    return { 
+      success: false, 
+      message: 'Error getting master data: ' + error.toString() 
+    };
+  }
+}
+
+
+function getSmartTransactionDate(inputDate) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  
+  // Jika tidak ada input tanggal, gunakan timestamp sekarang
+  if (!inputDate || inputDate.trim() === '') {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  }
+  
+  // Jika tanggal = hari ini, gunakan timestamp sekarang (dengan jam real-time)
+  if (inputDate === today) {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  }
+  
+  // Jika tanggal ≠ hari ini (tanggal lain), gunakan 00:00:00
+  return inputDate + ' 00:00:00';
+}
+
+function saveBarangMasukWithID(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('BARANG_MASUK');
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    
+    if (!sheet || !keuanganSheet || !produkSheet) {
+      return { success: false, message: 'Required sheets not found' };
+    }
+    
+    // Product ID logic
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    const hasProductID = headers.includes('Product_ID');
+    
+    let productCode = data.kodeProduk;
+    let productID = null;
+    
+    if (hasProductID) {
+      if (data.kodeProduk.startsWith('PID')) {
+        productID = data.kodeProduk;
+        const produkData = produkSheet.getDataRange().getValues().slice(3);
+        const produkRow = produkData.find(row => row[0] === productID);
+        if (produkRow) {
+          productCode = produkRow[1];
+        }
+      } else {
+        const produkData = produkSheet.getDataRange().getValues().slice(3);
+        const produkRow = produkData.find(row => row[1] === data.kodeProduk);
+        if (produkRow) {
+          productID = produkRow[0];
+          productCode = produkRow[1];
+        }
+      }
+    }
+    
+    // SMART TIMESTAMP - gunakan helper function
+    const transactionDate = getSmartTransactionDate(data.tanggal);
+    console.log(`Transaction date: ${transactionDate} (input: ${data.tanggal})`);
+    
+    // Validasi tanggal
+    const inputDate = new Date(transactionDate);
+    const maxFutureDate = new Date();
+    maxFutureDate.setDate(maxFutureDate.getDate() + 1);
+    
+    if (inputDate > maxFutureDate) {
+      return { 
+        success: false, 
+        message: 'Tanggal tidak boleh lebih dari 1 hari ke depan dari hari ini' 
+      };
+    }
+    
+    const total = data.qty * data.harga;
+    
+    // Add to Barang Masuk
+    const referenceValue = productID || productCode;
+    const newRow = [transactionDate, data.noInvoice, data.supplier, referenceValue, data.qty, data.harga, total, 'Web User'];
+    sheet.appendRow(newRow);
+    
+    const lastRow = sheet.getLastRow();
+    simpleFormat('BARANG_MASUK', lastRow);
+    
+    // Auto-sort
+    autoSortAfterTransaction('BARANG_MASUK');
+    
+    // Add to Keuangan
+    const lastSaldo = getLastSaldo();
+    const newSaldo = lastSaldo - total;
+    const keuanganRow = [transactionDate, `Beli ${productCode} dari ${data.supplier}`, 'Keluar', total, newSaldo, data.noInvoice];
+    keuanganSheet.appendRow(keuanganRow);
+    
+    const lastKeuanganRow = keuanganSheet.getLastRow();
+    simpleFormat('KEUANGAN', lastKeuanganRow);
+    
+    updateStokRealOptimized();
+    
+    return { 
+      success: true, 
+      message: `Barang masuk berhasil disimpan! Product: ${productCode}, Waktu: ${transactionDate}` 
+    };
+    
+  } catch (error) {
+    return { success: false, message: 'Error: ' + error.toString() };
+  }
+}
+
+function saveBarangKeluarWithID(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('BARANG_KELUAR');
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    
+    if (!sheet || !keuanganSheet || !produkSheet) {
+      return { success: false, message: 'Required sheets not found' };
+    }
+    
+    // Product ID logic
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    const hasProductID = headers.includes('Product_ID');
+    
+    let productCode = data.kodeProduk;
+    let productID = null;
+    
+    if (hasProductID) {
+      if (data.kodeProduk.startsWith('PID')) {
+        productID = data.kodeProduk;
+        const produkData = produkSheet.getDataRange().getValues().slice(3);
+        const produkRow = produkData.find(row => row[0] === productID);
+        if (produkRow) {
+          productCode = produkRow[1];
+        }
+      } else {
+        const produkData = produkSheet.getDataRange().getValues().slice(3);
+        const produkRow = produkData.find(row => row[1] === data.kodeProduk);
+        if (produkRow) {
+          productID = produkRow[0];
+          productCode = produkRow[1];
+        }
+      }
+    }
+    
+    // SMART TIMESTAMP - gunakan helper function
+    const transactionDate = getSmartTransactionDate(data.tanggal);
+    console.log(`Transaction date: ${transactionDate} (input: ${data.tanggal})`);
+    
+    // Validasi tanggal
+    const inputDate = new Date(transactionDate);
+    const maxFutureDate = new Date();
+    maxFutureDate.setDate(maxFutureDate.getDate() + 1);
+    
+    if (inputDate > maxFutureDate) {
+      return { 
+        success: false, 
+        message: 'Tanggal tidak boleh lebih dari 1 hari ke depan dari hari ini' 
+      };
+    }
+    
+    const total = data.qty * data.harga;
+    
+    // Add to Barang Keluar
+    const referenceValue = productID || productCode;
+    const newRow = [transactionDate, data.noDO, data.kodeCabang, referenceValue, data.qty, data.harga, total, 'Web User'];
+    sheet.appendRow(newRow);
+    
+    const lastRow = sheet.getLastRow();
+    simpleFormat('BARANG_KELUAR', lastRow);
+    
+    // Auto-sort
+    autoSortAfterTransaction('BARANG_KELUAR');
+    
+    // Add to Keuangan
+    const lastSaldo = getLastSaldo();
+    const newSaldo = lastSaldo + total;
+    const keuanganRow = [transactionDate, `Jual ${productCode} ke ${data.kodeCabang}`, 'Masuk', total, newSaldo, data.noDO];
+    keuanganSheet.appendRow(keuanganRow);
+    
+    const lastKeuanganRow = keuanganSheet.getLastRow();
+    simpleFormat('KEUANGAN', lastKeuanganRow);
+    
+    updateStokRealOptimized();
+    
+    return { 
+      success: true, 
+      message: `Barang keluar berhasil disimpan! Product: ${productCode}, Waktu: ${transactionDate}` 
+    };
+    
+  } catch (error) {
+    return { success: false, message: 'Error: ' + error.toString() };
+  }
+}
+
+function saveKeuangan(data) {
+  try {
+    console.log('saveKeuangan called with data:', data);
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    
+    if (!keuanganSheet) {
+      return { success: false, message: 'Keuangan sheet not found' };
+    }
+    
+    // SMART TIMESTAMP - gunakan helper function
+    const transactionDate = getSmartTransactionDate(data.tanggal);
+    console.log(`Transaction date: ${transactionDate} (input: ${data.tanggal})`);
+    
+    const lastSaldo = getLastSaldo();
+    let newSaldo = data.tipe === 'Masuk' ? lastSaldo + data.jumlah : lastSaldo - data.jumlah;
+    
+    const keuanganRow = [transactionDate, data.keterangan, data.tipe, data.jumlah, newSaldo, data.refNo || '-'];
+    keuanganSheet.appendRow(keuanganRow);
+    
+    const lastRow = keuanganSheet.getLastRow();
+    simpleFormat('KEUANGAN', lastRow);
+    
+    return { 
+      success: true, 
+      message: `Keuangan saved! Waktu: ${transactionDate}` 
+    };
+    
+  } catch (error) {
+    return { success: false, message: 'Error: ' + error.toString() };
+  }
+}
+
+function getLastSaldo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const keuanganSheet = ss.getSheetByName('KEUANGAN');
+  
+  if (!keuanganSheet) return 0;
+  
+  const data = keuanganSheet.getDataRange().getValues();
+  
+  // Jika hanya ada title dan header (no data), return 0
+  if (data.length <= 2) return 0;
+  
+  // Return saldo terakhir
+  return data[data.length - 1][4]; // Column E (Saldo)
+}
+
+// Updated untuk mendukung Product_ID system
+function updateStokRealOptimized() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const stokSheet = ss.getSheetByName('STOK_REAL');
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    
+    // Clear existing data
+    const lastRow = stokSheet.getLastRow();
+    if (lastRow > 2) {
+      stokSheet.getRange(3, 1, lastRow - 2, 7).clearContent();
+    }
+    
+    // Cek apakah menggunakan Product_ID system
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    const hasProductID = headers.includes('Product_ID');
+    
+    // Get product data
+    const allProdukData = produkSheet.getDataRange().getValues();
+    const produkData = allProdukData.slice(3); // Skip rows 1, 2, 3
+    
+    const masukData = masukSheet.getDataRange().getValues().slice(2);
+    const keluarData = keluarSheet.getDataRange().getValues().slice(2);
+    
+    const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    
+    const stokDataToUpdate = [];
+    
+    // Process each product
+    produkData.forEach(produk => {
+      if (!produk[0] || produk[0] === '') return;
+      
+      let productID, kode, nama, minStok;
+      
+      if (hasProductID) {
+        productID = produk[0]; // Product_ID di kolom A
+        kode = produk[1];      // Kode di kolom B
+        nama = produk[2];      // Nama di kolom C
+        minStok = produk[5] || 10; // Min_Stok di kolom F
+      } else {
+        kode = produk[0];      // Kode di kolom A (legacy)
+        nama = produk[1];      // Nama di kolom B
+        minStok = produk[4] || 10; // Min_Stok di kolom E
+      }
+      
+      // Calculate totals - search by both Product_ID and kode for backward compatibility
+      let totalMasuk = 0;
+      masukData.forEach(row => {
+        const refValue = row[3]; // Column D
+        if (refValue === (productID || kode) || refValue === kode) {
+          totalMasuk += parseInt(row[4]) || 0; // Column E is Qty
+        }
+      });
+      
+      let totalKeluar = 0;
+      keluarData.forEach(row => {
+        const refValue = row[3]; // Column D
+        if (refValue === (productID || kode) || refValue === kode) {
+          totalKeluar += parseInt(row[4]) || 0; // Column E is Qty
+        }
+      });
+      
+      const sisa = totalMasuk - totalKeluar;
+      
+      stokDataToUpdate.push([kode, nama, totalMasuk, totalKeluar, sisa, minStok, today]);
+    });
+    
+    // Update all data in one operation
+    if (stokDataToUpdate.length > 0) {
+      const range = stokSheet.getRange(3, 1, stokDataToUpdate.length, 7);
+      range.setValues(stokDataToUpdate);
+    }
+    
+    console.log('Stok updated successfully with Product_ID compatibility');
+    
+  } catch (error) {
+    console.error('updateStokRealOptimized error:', error.toString());
+  }
+}
+
+function getDashboardDataOptimized() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Update stok first
+    updateStokRealOptimized();
+    
+    const stokSheet = ss.getSheetByName('STOK_REAL');
+    const stokData = stokSheet.getDataRange().getValues().slice(2);
+    
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    const keuanganData = keuanganSheet.getDataRange().getValues().slice(2);
+    
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    
+    const allMasuk = masukSheet.getDataRange().getValues().slice(2);
+    const allKeluar = keluarSheet.getDataRange().getValues().slice(2);
+    
+    // ===== SORT BY DATE (column 0) - DESCENDING (newest first) =====
+    allMasuk.sort((a, b) => {
+      const dateA = new Date(a[0]);
+      const dateB = new Date(b[0]);
+      return dateB - dateA; // Descending order (terbaru di atas)
+    });
+    
+    allKeluar.sort((a, b) => {
+      const dateA = new Date(a[0]);
+      const dateB = new Date(b[0]);
+      return dateB - dateA; // Descending order (terbaru di atas)
+    });
+    
+    // Get recent 10 after sorting
+    const recentMasuk = allMasuk.slice(0, 10);
+    const recentKeluar = allKeluar.slice(0, 10);
+    
+    return {
+      success: true,
+      data: {
+        stok: stokData,
+        keuangan: keuanganData,
+        recentMasuk: recentMasuk,
+        recentKeluar: recentKeluar
+      }
+    };
+  } catch (error) {
+    console.error('getDashboardDataOptimized error:', error);
+    return { 
+      success: false, 
+      message: 'Error getting dashboard data: ' + error.toString() 
+    };
+  }
+}
+
+function getFullMasukData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    
+    if (!masukSheet) {
+      return { success: false, message: 'BARANG_MASUK sheet not found' };
+    }
+    
+    const allMasuk = masukSheet.getDataRange().getValues().slice(2);
+    
+    // Sort by date descending (newest first)
+    allMasuk.sort((a, b) => {
+      const dateA = new Date(a[0]);
+      const dateB = new Date(b[0]);
+      return dateB - dateA;
+    });
+    
+    return {
+      success: true,
+      data: allMasuk
+    };
+  } catch (error) {
+    console.error('getFullMasukData error:', error);
+    return { 
+      success: false, 
+      message: 'Error getting full masuk data: ' + error.toString() 
+    };
+  }
+}
+
+function getFullKeluarData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    
+    if (!keluarSheet) {
+      return { success: false, message: 'BARANG_KELUAR sheet not found' };
+    }
+    
+    const allKeluar = keluarSheet.getDataRange().getValues().slice(2);
+    
+    // Sort by date descending (newest first)
+    allKeluar.sort((a, b) => {
+      const dateA = new Date(a[0]);
+      const dateB = new Date(b[0]);
+      return dateB - dateA;
+    });
+    
+    return {
+      success: true,
+      data: allKeluar
+    };
+  } catch (error) {
+    console.error('getFullKeluarData error:', error);
+    return { 
+      success: false, 
+      message: 'Error getting full keluar data: ' + error.toString() 
+    };
+  }
+}
+
+function getAverageCostsOptimized() {
+  try {
+    console.log('Starting getAverageCostsOptimized with Product_ID support...');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    
+    if (!masukSheet || !produkSheet) {
+      return { success: false, message: 'Required sheets not found' };
+    }
+    
+    // Cek apakah menggunakan Product_ID system
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    const hasProductID = headers.includes('Product_ID');
+    
+    const allData = masukSheet.getDataRange().getValues();
+    
+    if (allData.length <= 2) {
+      return { 
+        success: true, 
+        data: {},
+        message: 'No purchase data yet'
+      };
+    }
+    
+    const masukData = allData.slice(2);
+    const produkData = produkSheet.getDataRange().getValues().slice(3);
+    
+    // Create mapping dari Product_ID/Kode ke display kode
+    const productMapping = {};
+    produkData.forEach(row => {
+      if (hasProductID && row[0] && row[1]) {
+        productMapping[row[0]] = row[1]; // Product_ID -> Kode
+        productMapping[row[1]] = row[1]; // Kode -> Kode (untuk backward compatibility)
+      } else if (row[0]) {
+        productMapping[row[0]] = row[0]; // Kode -> Kode (legacy)
+      }
+    });
+    
+    const costData = {};
+    
+    masukData.forEach((row, index) => {
+      if (!row || row.length < 7) return;
+      
+      const [tanggal, invoice, supplier, productRef, qty, harga, total] = row;
+      
+      if (!productRef || qty === '' || harga === '') return;
+      
+      // Convert ke display kode
+      const displayCode = productMapping[productRef] || productRef;
+      
+      let quantity = 0;
+      let price = 0;
+      
+      try {
+        quantity = parseInt(qty) || parseFloat(qty) || 0;
+        price = parseInt(harga) || parseFloat(harga) || 0;
+      } catch (e) {
+        return;
+      }
+      
+      if (quantity > 0 && price > 0) {
+        if (!costData[displayCode]) {
+          costData[displayCode] = {
+            totalValue: 0,
+            totalQty: 0,
+            avgCost: 0,
+            transactions: [],
+            lastPrice: 0,
+            priceCount: 0
+          };
+        }
+        
+        const value = quantity * price;
+        
+        costData[displayCode].totalValue += value;
+        costData[displayCode].totalQty += quantity;
+        costData[displayCode].priceCount++;
+        costData[displayCode].lastPrice = price;
+        
+        costData[displayCode].transactions.push({
+          tanggal: tanggal,
+          qty: quantity,
+          harga: price,
+          supplier: supplier,
+          invoice: invoice
+        });
+      }
+    });
+    
+    // Calculate weighted average costs
+    Object.keys(costData).forEach(kode => {
+      const data = costData[kode];
+      if (data.totalQty > 0) {
+        data.avgCost = Math.round(data.totalValue / data.totalQty);
+      }
+    });
+    
+    return {
+      success: true,
+      data: costData,
+      hasProductID: hasProductID
+    };
+  } catch (error) {
+    console.error('getAverageCostsOptimized error:', error);
+    return { 
+      success: false, 
+      message: 'Error calculating average costs: ' + error.toString() 
+    };
+  }
+}
+
+// ========== FORMATTING HELPER FUNCTIONS ==========
+
+function formatSheetHeader(sheet, headerRange, titleRange, backgroundColor = '#4285f4') {
+  if (titleRange) {
+    titleRange.merge();
+    titleRange.setBackground('#1c4587');
+    titleRange.setFontColor('#ffffff');
+    titleRange.setFontWeight('bold');
+    titleRange.setFontSize(14);
+    titleRange.setHorizontalAlignment('center');
+    titleRange.setVerticalAlignment('middle');
+    titleRange.setBorder(true, true, true, true, false, false, 'black', SpreadsheetApp.BorderStyle.SOLID);
+  }
+  
+  headerRange.setBackground(backgroundColor);
+  headerRange.setFontColor('#ffffff');
+  headerRange.setFontWeight('bold');
+  headerRange.setFontSize(11);
+  headerRange.setHorizontalAlignment('center');
+  headerRange.setVerticalAlignment('middle');
+  headerRange.setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+function simpleFormat(sheetName, rowNumber) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet || !rowNumber) return;
+    
+    if (sheetName === 'BARANG_MASUK') {
+      formatCurrency(sheet.getRange(rowNumber, 6, 1, 2));
+    }
+    
+    if (sheetName === 'BARANG_KELUAR') {
+      formatCurrency(sheet.getRange(rowNumber, 6, 1, 2));
+    }
+    
+    if (sheetName === 'KEUANGAN') {
+      formatCurrency(sheet.getRange(rowNumber, 4, 1, 2));
+    }
+    
+  } catch (error) {
+    console.error('Simple format error for', sheetName, ':', error.toString());
+  }
+}
+
+function formatCurrency(range) {
+  try {
+    range.setNumberFormat('#,##0');
+  } catch (error) {
+    console.error('formatCurrency error:', error.toString());
+    throw error;
+  }
+}
+
+function formatPhoneNumber(range) {
+  try {
+    range.setNumberFormat('@');
+  } catch (error) {
+    console.error('formatPhoneNumber error:', error.toString());
+    throw error;
+  }
+}
+
+// ========== SETUP FUNCTIONS (Updated) ==========
+
+function setupInitialData() {
+  try {
+    console.log('Starting setupInitialData...');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    try {
+      setupMasterProduk(ss);
+      console.log('✓ Master Produk completed');
+    } catch (error) {
+      console.error('✗ Master Produk failed:', error.toString());
+      return { success: false, message: 'Master Produk setup failed: ' + error.toString() };
+    }
+    
+    try {
+      setupMasterCabang(ss);
+      console.log('✓ Master Cabang completed');
+    } catch (error) {
+      console.error('✗ Master Cabang failed:', error.toString());
+      return { success: false, message: 'Master Cabang setup failed: ' + error.toString() };
+    }
+    
+    try {
+      setupOtherSheets(ss);
+      console.log('✓ Other Sheets completed');
+    } catch (error) {
+      console.error('✗ Other Sheets failed:', error.toString());
+      return { success: false, message: 'Other Sheets setup failed: ' + error.toString() };
+    }
+    
+    // REMOVED: addModalAwal() - tidak ada modal otomatis
+    
+    console.log('Setup completed - ready for manual input!');
+    return { 
+      success: true, 
+      message: 'Initial data setup completed! System ready - input your own modal when needed.',
+      sheets: ss.getSheets().map(s => s.getName())
+    };
+  } catch (error) {
+    console.error('setupInitialData main error:', error.toString());
+    return { 
+      success: false, 
+      message: 'Setup failed: ' + error.toString() 
+    };
+  }
+}
+
+function setupMasterProduk(ss) {
+  try {
+    console.log('Setting up MASTER_PRODUK...');
+    let sheet = ss.getSheetByName('MASTER_PRODUK');
+    if (sheet) {
+      ss.deleteSheet(sheet);
+      console.log('Deleted existing MASTER_PRODUK');
+    }
+    
+    sheet = ss.insertSheet('MASTER_PRODUK');
+    console.log('Created new MASTER_PRODUK sheet');
+    
+    // Add title and header (no Product_ID yet)
+    sheet.getRange('A1').setValue('DATA MASTER PRODUK');
+    sheet.getRange('A2:F2').setValues([['Kode', 'Nama_Produk', 'Kemasan', 'Harga_Ref', 'Min_Stok', 'Status']]);
+    
+    try {
+      formatSheetHeader(sheet, sheet.getRange('A2:F2'), sheet.getRange('A1:F1'), '#34a853');
+    } catch (formatError) {
+      console.log('Header format error:', formatError.toString());
+    }
+    
+    sheet.getRange('A3').setValue('Harga_Ref = Harga referensi, harga aktual bisa berbeda per transaksi');
+    
+    const sampleData = [
+      ['D01', 'Siomay', '20 pcs', 25000, 10, 'Aktif'],
+      ['D02', 'Hakau', '20 pcs', 30000, 15, 'Aktif'],       
+      ['D03', 'Lumpia', '25 pcs', 20000, 5, 'Aktif'],       
+      ['D04', 'Pangsit', '20 pcs', 22000, 8, 'Aktif'],      
+      ['D05', 'Dimsum Ayam', '20 pcs', 28000, 12, 'Aktif']
+    ];
+    
+    const dataRange = sheet.getRange(4, 1, sampleData.length, 6);
+    dataRange.setValues(sampleData);
+    
+    try {
+      formatCurrency(sheet.getRange(4, 4, sampleData.length, 1));
+    } catch (currencyError) {
+      console.log('Currency format error:', currencyError.toString());
+    }
+    
+    console.log('MASTER_PRODUK setup completed');
+    
+  } catch (error) {
+    console.error('setupMasterProduk error:', error.toString());
+    throw error;
+  }
+}
+
+function setupMasterCabang(ss) {
+  try {
+    console.log('Setting up MASTER_CABANG...');
+    let sheet = ss.getSheetByName('MASTER_CABANG');
+    if (sheet) {
+      ss.deleteSheet(sheet);
+    }
+    
+    sheet = ss.insertSheet('MASTER_CABANG');
+    
+    sheet.getRange('A1').setValue('DATA MASTER CABANG');
+    sheet.getRange('A2:D2').setValues([['Kode', 'Nama_Cabang', 'PIC', 'No_HP']]);
+    
+    try {
+      formatSheetHeader(sheet, sheet.getRange('A2:D2'), sheet.getRange('A1:D1'), '#ff9900');
+    } catch (formatError) {
+      console.log('Header format error:', formatError.toString());
+    }
+    
+    const sampleData = [
+      ['C01', 'Cabang Jakarta Pusat', 'Budi Santoso', '08123456789'],
+      ['C02', 'Cabang Jakarta Selatan', 'Sari Dewi', '08198765432']
+    ];
+    
+    const dataRange = sheet.getRange(3, 1, sampleData.length, 4);
+    dataRange.setValues(sampleData);
+    
+    try {
+      formatPhoneNumber(sheet.getRange(3, 4, sampleData.length, 1));
+    } catch (phoneError) {
+      console.log('Phone format error:', phoneError.toString());
+    }
+    
+    console.log('MASTER_CABANG setup completed');
+    
+  } catch (error) {
+    console.error('setupMasterCabang error:', error.toString());
+    throw error;
+  }
+}
+
+function setupOtherSheets(ss) {
+  try {
+    console.log('Setting up other sheets...');
+    
+    // Barang Masuk
+    let sheetMasuk = ss.getSheetByName('BARANG_MASUK');
+    if (sheetMasuk) {
+      ss.deleteSheet(sheetMasuk);
+    }
+    sheetMasuk = ss.insertSheet('BARANG_MASUK');
+    sheetMasuk.getRange('A1').setValue('TRANSAKSI BARANG MASUK');
+    sheetMasuk.getRange('A2:H2').setValues([['Tanggal', 'No_Invoice', 'Supplier', 'Kode_Produk', 'Qty', 'Harga', 'Total', 'User']]);
+    
+    try {
+      formatSheetHeader(sheetMasuk, sheetMasuk.getRange('A2:H2'), sheetMasuk.getRange('A1:H1'), '#ea4335');
+    } catch (formatError) {
+      console.log('BARANG_MASUK format error:', formatError.toString());
+    }
+    
+    // Barang Keluar
+    let sheetKeluar = ss.getSheetByName('BARANG_KELUAR');
+    if (sheetKeluar) {
+      ss.deleteSheet(sheetKeluar);
+    }
+    sheetKeluar = ss.insertSheet('BARANG_KELUAR');
+    sheetKeluar.getRange('A1').setValue('TRANSAKSI BARANG KELUAR');
+    sheetKeluar.getRange('A2:H2').setValues([['Tanggal', 'No_DO', 'Kode_Cabang', 'Kode_Produk', 'Qty', 'Harga', 'Total', 'User']]);
+    
+    try {
+      formatSheetHeader(sheetKeluar, sheetKeluar.getRange('A2:H2'), sheetKeluar.getRange('A1:H1'), '#9c27b0');
+    } catch (formatError) {
+      console.log('BARANG_KELUAR format error:', formatError.toString());
+    }
+    
+    // Keuangan
+    let sheetKeuangan = ss.getSheetByName('KEUANGAN');
+    if (sheetKeuangan) {
+      ss.deleteSheet(sheetKeuangan);
+    }
+    sheetKeuangan = ss.insertSheet('KEUANGAN');
+    sheetKeuangan.getRange('A1').setValue('LAPORAN KEUANGAN');
+    sheetKeuangan.getRange('A2:F2').setValues([['Tanggal', 'Keterangan', 'Tipe', 'Jumlah', 'Saldo', 'Ref_No']]);
+    
+    try {
+      formatSheetHeader(sheetKeuangan, sheetKeuangan.getRange('A2:F2'), sheetKeuangan.getRange('A1:F1'), '#607d8b');
+    } catch (formatError) {
+      console.log('KEUANGAN format error:', formatError.toString());
+    }
+    
+    // Stok Real
+    let sheetStok = ss.getSheetByName('STOK_REAL');
+    if (sheetStok) {
+      ss.deleteSheet(sheetStok);
+    }
+    sheetStok = ss.insertSheet('STOK_REAL');
+    sheetStok.getRange('A1').setValue('LAPORAN STOK REAL TIME');
+    sheetStok.getRange('A2:G2').setValues([['Kode', 'Nama_Produk', 'Masuk', 'Keluar', 'Sisa', 'Min_Stok', 'Last_Update']]);
+    
+    try {
+      formatSheetHeader(sheetStok, sheetStok.getRange('A2:G2'), sheetStok.getRange('A1:G1'), '#795548');
+    } catch (formatError) {
+      console.log('STOK_REAL format error:', formatError.toString());
+    }
+    
+    console.log('Other sheets setup completed');
+    
+  } catch (error) {
+    console.error('setupOtherSheets error:', error.toString());
+    throw error;
+  }
+}
+
+function addModalAwal() {
+  // SKIP - Biarkan user input modal sendiri
+  console.log('Modal awal skipped - user will input manually');
+  return;
+}
+
+function testConnection() {
+  return {
+    success: true,
+    message: 'Apps Script API with Product_ID system is working!',
+    timestamp: new Date(),
+    sheets: SpreadsheetApp.getActiveSpreadsheet().getSheets().map(s => s.getName())
+  };
+}
+
+
+// ========== COMPLETE DATA REPAIR SYSTEM ==========
+
+// MAIN FUNCTION: Sort semua data berdasarkan tanggal
+function sortDataByDate() {
+  try {
+    const confirm = Browser.msgBox('Sort Data by Date', 
+      'PROSES REPAIR DATA:\n\n' +
+      '✅ Sort BARANG_MASUK berdasarkan tanggal\n' +
+      '✅ Sort BARANG_KELUAR berdasarkan tanggal\n' +
+      '✅ Rebuild KEUANGAN secara kronologis\n' +
+      '✅ Recalculate saldo dengan urutan yang benar\n\n' +
+      'Proses ini akan MEMPERBAIKI masalah chronological data.\n' +
+      'BACKUP otomatis akan dibuat.\n\n' +
+      'Lanjutkan?', 
+      Browser.Buttons.YES_NO);
+    
+    if (confirm !== 'yes') return;
+    
+    const startTime = new Date();
+    console.log('Starting data repair process...');
+    
+    // Step 1: Create backup
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    const backupFile = ss.copy(`BACKUP_BEFORE_SORT_${timestamp}`);
+    console.log('Backup created:', backupFile.getName());
+    
+    // Step 2: Sort transaction sheets
+    const sortResults = sortTransactionSheets(ss);
+    console.log('Sort results:', sortResults);
+    
+    // Step 3: Rebuild keuangan chronologically
+    const rebuildResults = rebuildKeuanganChronologically(ss);
+    console.log('Rebuild results:', rebuildResults);
+    
+    // Step 4: Update stok
+    updateStokRealOptimized();
+    
+    // Step 5: Final verification
+    const verifyResults = verifyDataIntegrity(ss);
+    
+    const endTime = new Date();
+    const duration = Math.round((endTime - startTime) / 1000);
+    
+    const successMessage = 
+      `🎉 DATA REPAIR BERHASIL! (${duration}s)\n\n` +
+      `📋 Backup: ${backupFile.getName()}\n` +
+      `📥 BARANG_MASUK: ${sortResults.masukSorted} records sorted\n` +
+      `📤 BARANG_KELUAR: ${sortResults.keluarSorted} records sorted\n` +
+      `💰 KEUANGAN: ${rebuildResults.transactionsProcessed} transactions rebuilt\n` +
+      `💵 Saldo Akhir: ${formatRupiah(rebuildResults.finalBalance)}\n\n` +
+      `✅ Data sekarang sudah kronologis dan saldo akurat!`;
+    
+    Browser.msgBox('Repair Complete!', successMessage, Browser.Buttons.OK);
+    
+    return {
+      success: true,
+      backup: backupFile.getName(),
+      sortResults: sortResults,
+      rebuildResults: rebuildResults,
+      verifyResults: verifyResults,
+      duration: duration
+    };
+    
+  } catch (error) {
+    console.error('sortDataByDate error:', error);
+    Browser.msgBox('Error', 'Data repair failed: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+// STEP 2: Sort transaction sheets
+function sortTransactionSheets(ss) {
+  const masukSheet = ss.getSheetByName('BARANG_MASUK');
+  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+  
+  let masukSorted = 0;
+  let keluarSorted = 0;
+  
+  // Sort BARANG_MASUK by date (column A)
+  if (masukSheet) {
+    const masukRange = masukSheet.getDataRange();
+    if (masukRange.getNumRows() > 2) { // Has data beyond header
+      const dataRange = masukRange.offset(2, 0, masukRange.getNumRows() - 2); // Skip title and header
+      dataRange.sort({column: 1, ascending: true}); // Sort by column A (Tanggal)
+      masukSorted = dataRange.getNumRows();
+      console.log(`BARANG_MASUK sorted: ${masukSorted} rows`);
+    }
+  }
+  
+  // Sort BARANG_KELUAR by date (column A)
+  if (keluarSheet) {
+    const keluarRange = keluarSheet.getDataRange();
+    if (keluarRange.getNumRows() > 2) { // Has data beyond header
+      const dataRange = keluarRange.offset(2, 0, keluarRange.getNumRows() - 2); // Skip title and header
+      dataRange.sort({column: 1, ascending: true}); // Sort by column A (Tanggal)
+      keluarSorted = dataRange.getNumRows();
+      console.log(`BARANG_KELUAR sorted: ${keluarSorted} rows`);
+    }
+  }
+  
+  return {
+    masukSorted: masukSorted,
+    keluarSorted: keluarSorted
+  };
+}
+
+function rebuildKeuanganChronologically(ss) {
+  const keuanganSheet = ss.getSheetByName('KEUANGAN');
+  const masukSheet = ss.getSheetByName('BARANG_MASUK');
+  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+  const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+  
+  console.log('Starting keuangan rebuild with strict validation...');
+  
+  // Backup existing keuangan data
+  const existingKeuanganData = keuanganSheet.getDataRange().getValues();
+  
+  // IMPROVED: Cari SEMUA entry manual dengan validasi yang lebih ketat
+  const manualEntries = [];
+  existingKeuanganData.slice(2).forEach((row, index) => {
+    // Skip baris yang kosong atau tidak valid
+    if (!row[0] || !row[1] || !row[2] || !row[3]) {
+      console.log(`Skipping invalid row ${index + 3}:`, row);
+      return;
+    }
+    
+    const tanggal = row[0];
+    const keterangan = row[1] ? row[1].toString().toLowerCase() : '';
+    const tipe = row[2];
+    const jumlah = row[3];
+    
+    // Validasi tanggal
+    const dateObj = new Date(tanggal);
+    if (isNaN(dateObj.getTime()) || dateObj.getFullYear() < 2000) {
+      console.log(`Invalid date at row ${index + 3}:`, tanggal);
+      return;
+    }
+    
+    // Manual entry = BUKAN dari transaksi barang (tidak mengandung "beli" atau "jual")
+    const isBeli = keterangan.includes('beli');
+    const isJual = keterangan.includes('jual');
+    
+    if (!isBeli && !isJual) {
+      console.log(`Found manual entry at row ${index + 3}:`, keterangan);
+      manualEntries.push({
+        rowIndex: index + 3,
+        date: dateObj,
+        keterangan: row[1],
+        tipe: tipe,
+        jumlah: jumlah,
+        refNo: row[5] || '-'
+      });
+    }
+  });
+  
+  console.log('Manual entries found:', manualEntries.length);
+  
+  // Clear keuangan sheet (keep title and header)
+  if (keuanganSheet.getLastRow() > 2) {
+    keuanganSheet.getRange(3, 1, keuanganSheet.getLastRow() - 2, 6).clearContent();
+  }
+  
+  // Get product mapping
+  const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+  const hasProductID = headers.includes('Product_ID');
+  const produkData = produkSheet.getDataRange().getValues().slice(3);
+  const productMapping = {};
+  
+  produkData.forEach(row => {
+    if (hasProductID && row[0] && row[1]) {
+      productMapping[row[0]] = row[1]; // Product_ID -> Kode
+      productMapping[row[1]] = row[1]; // Kode -> Kode
+    } else if (row[0]) {
+      productMapping[row[0]] = row[0]; // Kode -> Kode
+    }
+  });
+  
+  // Collect all transactions
+  const allTransactions = [];
+  
+  // Add manual entries back (VALIDATED)
+  manualEntries.forEach(entry => {
+    if (entry.date && entry.keterangan && entry.tipe && entry.jumlah) {
+      allTransactions.push({
+        date: entry.date,
+        keterangan: entry.keterangan,
+        tipe: entry.tipe,
+        jumlah: entry.jumlah,
+        refNo: entry.refNo,
+        type: 'manual'
+      });
+    }
+  });
+  
+  console.log('Manual transactions added:', manualEntries.length);
+  
+  // Add barang masuk (DENGAN VALIDASI KETAT)
+  const masukData = masukSheet.getDataRange().getValues().slice(2);
+  let masukCount = 0;
+  
+  masukData.forEach((row, index) => {
+    // Validasi data
+    if (!row[0] || !row[2] || !row[3] || !row[6]) {
+      console.log(`Skipping invalid MASUK row ${index + 3}`);
+      return;
+    }
+    
+    const tanggal = row[0];
+    const supplier = row[2];
+    const productRef = row[3];
+    const total = row[6];
+    
+    // Validasi tanggal
+    const dateObj = new Date(tanggal);
+    if (isNaN(dateObj.getTime()) || dateObj.getFullYear() < 2000) {
+      console.log(`Invalid date in MASUK row ${index + 3}:`, tanggal);
+      return;
+    }
+    
+    // Validasi amount
+    if (typeof total !== 'number' || total <= 0) {
+      console.log(`Invalid amount in MASUK row ${index + 3}:`, total);
+      return;
+    }
+    
+    const displayCode = productMapping[productRef] || productRef;
+    
+    allTransactions.push({
+      date: dateObj,
+      keterangan: `Beli ${displayCode} dari ${supplier}`,
+      tipe: 'Keluar',
+      jumlah: total,
+      refNo: row[1] || '-',
+      type: 'masuk'
+    });
+    
+    masukCount++;
+  });
+  
+  console.log('MASUK transactions added:', masukCount);
+  
+  // Add barang keluar (DENGAN VALIDASI KETAT)
+  const keluarData = keluarSheet.getDataRange().getValues().slice(2);
+  let keluarCount = 0;
+  
+  keluarData.forEach((row, index) => {
+    // Validasi data
+    if (!row[0] || !row[2] || !row[3] || !row[6]) {
+      console.log(`Skipping invalid KELUAR row ${index + 3}`);
+      return;
+    }
+    
+    const tanggal = row[0];
+    const cabang = row[2];
+    const productRef = row[3];
+    const total = row[6];
+    
+    // Validasi tanggal
+    const dateObj = new Date(tanggal);
+    if (isNaN(dateObj.getTime()) || dateObj.getFullYear() < 2000) {
+      console.log(`Invalid date in KELUAR row ${index + 3}:`, tanggal);
+      return;
+    }
+    
+    // Validasi amount
+    if (typeof total !== 'number' || total <= 0) {
+      console.log(`Invalid amount in KELUAR row ${index + 3}:`, total);
+      return;
+    }
+    
+    const displayCode = productMapping[productRef] || productRef;
+    
+    allTransactions.push({
+      date: dateObj,
+      keterangan: `Jual ${displayCode} ke ${cabang}`,
+      tipe: 'Masuk',
+      jumlah: total,
+      refNo: row[1] || '-',
+      type: 'keluar'
+    });
+    
+    keluarCount++;
+  });
+  
+  console.log('KELUAR transactions added:', keluarCount);
+  console.log('Total transactions to process:', allTransactions.length);
+  
+  // Sort by date
+  allTransactions.sort((a, b) => a.date - b.date);
+  
+  // Rebuild with running balance
+  let currentSaldo = 0;
+  let transactionsProcessed = 0;
+  
+  allTransactions.forEach((transaction, index) => {
+    // FINAL VALIDATION sebelum insert
+    if (!transaction.date || !transaction.keterangan || !transaction.tipe || !transaction.jumlah) {
+      console.log(`Skipping invalid transaction at index ${index}:`, transaction);
+      return;
+    }
+    
+    // Validate date sekali lagi
+    if (isNaN(transaction.date.getTime()) || transaction.date.getFullYear() < 2000) {
+      console.log(`Skipping transaction with invalid date:`, transaction);
+      return;
+    }
+    
+    // Calculate balance
+    if (transaction.tipe === 'Masuk') {
+      currentSaldo += transaction.jumlah;
+    } else {
+      currentSaldo -= transaction.jumlah;
+    }
+    
+    // Create row dengan validasi
+    const keuanganRow = [
+      Utilities.formatDate(transaction.date, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'),
+      transaction.keterangan,
+      transaction.tipe,
+      transaction.jumlah,
+      currentSaldo,
+      transaction.refNo || '-'
+    ];
+    
+    // Final check: pastikan tidak ada undefined
+    if (keuanganRow.some(cell => cell === undefined || cell === null)) {
+      console.log(`Skipping row with undefined values:`, keuanganRow);
+      return;
+    }
+    
+    keuanganSheet.appendRow(keuanganRow);
+    
+    // Format
+    const lastRow = keuanganSheet.getLastRow();
+    simpleFormat('KEUANGAN', lastRow);
+    
+    transactionsProcessed++;
+  });
+  
+  console.log('Keuangan rebuild completed');
+  console.log('Transactions processed:', transactionsProcessed);
+  console.log('Final balance:', currentSaldo);
+  
+  return {
+    transactionsProcessed: transactionsProcessed,
+    finalBalance: currentSaldo,
+    manualEntriesPreserved: manualEntries.length,
+    masukTransactions: masukCount,
+    keluarTransactions: keluarCount,
+    startingBalance: 0
+  };
+}
+
+// UTILITY: Manual function untuk verify data keuangan sebelum rebuild
+function verifyKeuanganBeforeRebuild() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    
+    const data = keuanganSheet.getDataRange().getValues().slice(2);
+    
+    let report = '=== VERIFIKASI DATA KEUANGAN ===\n\n';
+    let invalidCount = 0;
+    let manualCount = 0;
+    let transactionCount = 0;
+    
+    data.forEach((row, index) => {
+      const rowNum = index + 3;
+      const tanggal = row[0];
+      const keterangan = row[1] ? row[1].toString() : '';
+      const tipe = row[2];
+      const jumlah = row[3];
+      
+      // Check for invalid data
+      if (!tanggal || !keterangan || !tipe || !jumlah) {
+        report += `❌ Row ${rowNum}: Data tidak lengkap\n`;
+        invalidCount++;
+        return;
+      }
+      
+      // Check date validity
+      const dateObj = new Date(tanggal);
+      if (isNaN(dateObj.getTime()) || dateObj.getFullYear() < 2000) {
+        report += `❌ Row ${rowNum}: Tanggal tidak valid (${tanggal})\n`;
+        invalidCount++;
+        return;
+      }
+      
+      // Categorize
+      const keteranganLower = keterangan.toLowerCase();
+      if (!keteranganLower.includes('beli') && !keteranganLower.includes('jual')) {
+        manualCount++;
+      } else {
+        transactionCount++;
+      }
+    });
+    
+    report += `\n=== SUMMARY ===\n`;
+    report += `Total rows: ${data.length}\n`;
+    report += `Manual entries: ${manualCount}\n`;
+    report += `Transaction entries: ${transactionCount}\n`;
+    report += `Invalid rows: ${invalidCount}\n\n`;
+    
+    if (invalidCount > 0) {
+      report += `⚠️ PERHATIAN: ${invalidCount} baris data tidak valid akan dihapus saat rebuild!\n`;
+    } else {
+      report += `✅ Semua data valid, aman untuk rebuild.\n`;
+    }
+    
+    Browser.msgBox('Verifikasi Data Keuangan', report, Browser.Buttons.OK);
+    
+    return {
+      totalRows: data.length,
+      manualEntries: manualCount,
+      transactions: transactionCount,
+      invalidRows: invalidCount
+    };
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Verifikasi gagal: ' + error.toString(), Browser.Buttons.OK);
+  }
+}
+
+// CRITICAL FIX: Disable auto-sync onEdit - terlalu agresif
+function onEdit(e) {
+  // DISABLED: Auto-sync terlalu agresif dan bisa corrupt data
+  // User harus manual sync via menu untuk keamanan
+  console.log('Auto-sync disabled for safety. Use manual sync from menu.');
+}
+
+// Helper function untuk mendapatkan display name produk
+function getProductDisplayName(productRef) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+    
+    if (!produkSheet) return productRef;
+    
+    const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+    const hasProductID = headers.includes('Product_ID');
+    const produkData = produkSheet.getDataRange().getValues().slice(3);
+    
+    // Cari produk berdasarkan Product_ID atau kode
+    const produk = produkData.find(row => {
+      if (hasProductID) {
+        return row[0] === productRef || row[1] === productRef; // Product_ID atau Kode
+      } else {
+        return row[0] === productRef; // Kode saja
+      }
+    });
+    
+    if (produk) {
+      return hasProductID ? produk[1] : produk[0]; // Return display kode
+    }
+    
+    return productRef; // Fallback
+  } catch (error) {
+    console.error('getProductDisplayName error:', error);
+    return productRef;
+  }
+}
+
+// STEP 4: Verify data integrity setelah repair
+function verifyDataIntegrity(ss) {
+  const issues = [];
+  const warnings = [];
+  
+  try {
+    // Check 1: Verify chronological order
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    
+    // Check BARANG_MASUK chronology
+    const masukData = masukSheet.getDataRange().getValues().slice(2);
+    for (let i = 1; i < masukData.length; i++) {
+      const prevDate = new Date(masukData[i-1][0]);
+      const currDate = new Date(masukData[i][0]);
+      
+      if (currDate < prevDate) {
+        issues.push(`BARANG_MASUK row ${i+3}: Date order issue`);
+      }
+    }
+    
+    // Check BARANG_KELUAR chronology
+    const keluarData = keluarSheet.getDataRange().getValues().slice(2);
+    for (let i = 1; i < keluarData.length; i++) {
+      const prevDate = new Date(keluarData[i-1][0]);
+      const currDate = new Date(keluarData[i][0]);
+      
+      if (currDate < prevDate) {
+        issues.push(`BARANG_KELUAR row ${i+3}: Date order issue`);
+      }
+    }
+    
+    // Check KEUANGAN chronology
+    const keuanganData = keuanganSheet.getDataRange().getValues().slice(2);
+    for (let i = 1; i < keuanganData.length; i++) {
+      const prevDate = new Date(keuanganData[i-1][0]);
+      const currDate = new Date(keuanganData[i][0]);
+      
+      if (currDate < prevDate) {
+        issues.push(`KEUANGAN row ${i+3}: Date order issue`);
+      }
+    }
+    
+    // Check 2: Verify balance calculations
+    let calculatedBalance = 0;
+    keuanganData.forEach((row, index) => {
+      if (row[2] === 'Masuk') {
+        calculatedBalance += row[3];
+      } else {
+        calculatedBalance -= row[3];
+      }
+      
+      const recordedBalance = row[4];
+      if (Math.abs(calculatedBalance - recordedBalance) > 1) { // Allow 1 rupiah tolerance
+        issues.push(`KEUANGAN row ${index+3}: Balance mismatch (calculated: ${calculatedBalance}, recorded: ${recordedBalance})`);
+      }
+    });
+    
+    // Check 3: Count transactions
+    const masukCount = masukData.length;
+    const keluarCount = keluarData.length;
+    const keuanganTransactionCount = keuanganData.filter(row => 
+      row[1] && (row[1].toString().includes('Beli') || row[1].toString().includes('Jual'))
+    ).length;
+    
+    const expectedKeuanganCount = masukCount + keluarCount;
+    if (Math.abs(keuanganTransactionCount - expectedKeuanganCount) > 2) { // Small tolerance
+      warnings.push(`Transaction count mismatch: Expected ${expectedKeuanganCount}, found ${keuanganTransactionCount} in KEUANGAN`);
+    }
+    
+  } catch (error) {
+    issues.push(`Verification error: ${error.toString()}`);
+  }
+  
+  return {
+    issues: issues,
+    warnings: warnings,
+    isValid: issues.length === 0
+  };
+}
+
+// UTILITY: Check data chronology (standalone function)
+function checkDataChronology() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const verifyResults = verifyDataIntegrity(ss);
+    
+    if (verifyResults.isValid && verifyResults.warnings.length === 0) {
+      Browser.msgBox('Chronology Check', 
+        '✅ Semua data sudah berurutan kronologis dengan baik!\n\n' +
+        'Tidak ada masalah yang ditemukan.',
+        Browser.Buttons.OK);
+    } else {
+      let message = '';
+      
+      if (verifyResults.issues.length > 0) {
+        message += `🔴 CRITICAL ISSUES (${verifyResults.issues.length}):\n`;
+        verifyResults.issues.slice(0, 5).forEach(issue => {
+          message += `• ${issue}\n`;
+        });
+        if (verifyResults.issues.length > 5) {
+          message += `... dan ${verifyResults.issues.length - 5} masalah lainnya\n`;
+        }
+        message += '\n';
+      }
+      
+      if (verifyResults.warnings.length > 0) {
+        message += `🟡 WARNINGS (${verifyResults.warnings.length}):\n`;
+        verifyResults.warnings.slice(0, 3).forEach(warning => {
+          message += `• ${warning}\n`;
+        });
+        if (verifyResults.warnings.length > 3) {
+          message += `... dan ${verifyResults.warnings.length - 3} warning lainnya\n`;
+        }
+      }
+      
+      message += '\nGunakan "Sort Data by Date" untuk memperbaiki masalah chronological.';
+      
+      Browser.msgBox('Chronology Issues Found', message, Browser.Buttons.OK);
+    }
+    
+    return verifyResults;
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Error checking chronology: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+// UTILITY: Format rupiah for display
+function formatRupiah(amount) {
+  return 'Rp ' + (amount || 0).toLocaleString('id-ID');
+}
+
+// UTILITY: Enhanced simpleFormat function
+function simpleFormat(sheetName, rowNumber) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet || !rowNumber) return;
+    
+    if (sheetName === 'BARANG_MASUK') {
+      formatCurrency(sheet.getRange(rowNumber, 6, 1, 2)); // Harga dan Total
+    }
+    
+    if (sheetName === 'BARANG_KELUAR') {
+      formatCurrency(sheet.getRange(rowNumber, 6, 1, 2)); // Harga dan Total
+    }
+    
+    if (sheetName === 'KEUANGAN') {
+      formatCurrency(sheet.getRange(rowNumber, 4, 1, 2)); // Jumlah dan Saldo
+    }
+    
+  } catch (error) {
+    console.error('Simple format error for', sheetName, ':', error.toString());
+  }
+}
+
+function formatCurrency(range) {
+  try {
+    range.setNumberFormat('#,##0');
+  } catch (error) {
+    console.error('formatCurrency error:', error.toString());
+  }
+}
+
+
+// UPDATED: recalculateAllSaldos - start from zero
+function recalculateAllSaldos(keuanganSheet) {
+  try {
+    console.log('Recalculating all saldos from zero...');
+    
+    const data = keuanganSheet.getDataRange().getValues();
+    if (data.length <= 2) return; // No data to process
+    
+    let runningBalance = 0; // START FROM ZERO
+    
+    // Process each row starting from row 3 (after title and header)
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      const tipe = row[2]; // Column C
+      const jumlah = row[3]; // Column D
+      
+      // Calculate new balance
+      if (tipe === 'Masuk') {
+        runningBalance += jumlah;
+      } else {
+        runningBalance -= jumlah;
+      }
+      
+      // Update saldo in sheet (Column E)
+      keuanganSheet.getRange(i + 1, 5).setValue(runningBalance);
+    }
+    
+    console.log('Saldo recalculation completed from zero');
+    
+  } catch (error) {
+    console.error('recalculateAllSaldos error:', error);
+  }
+}
+
+// UTILITY: Function untuk hapus semua modal awal existing
+function removeAllModalAwal() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    
+    const data = keuanganSheet.getDataRange().getValues();
+    const rowsToDelete = [];
+    
+    // Cari semua baris yang mengandung "modal awal" (case insensitive)
+    data.forEach((row, index) => {
+      if (row[1] && row[1].toString().toLowerCase().includes('modal awal')) {
+        rowsToDelete.push(index + 1); // 1-based row number
+      }
+    });
+    
+    if (rowsToDelete.length === 0) {
+      Browser.msgBox('Clean Modal', 'Tidak ada "Modal Awal" otomatis ditemukan.', Browser.Buttons.OK);
+      return;
+    }
+    
+    const confirm = Browser.msgBox('Remove Auto Modal', 
+      `Ditemukan ${rowsToDelete.length} entry "Modal Awal" otomatis.\n\nApakah ingin menghapus semua modal awal otomatis?\n\nAnda bisa input modal sendiri sesuai kebutuhan.`, 
+      Browser.Buttons.YES_NO);
+    
+    if (confirm !== 'yes') return;
+    
+    // Hapus dari bawah ke atas (supaya index tidak berubah)
+    for (let i = rowsToDelete.length - 1; i >= 0; i--) {
+      keuanganSheet.deleteRow(rowsToDelete[i]);
+    }
+    
+    // Recalculate saldos setelah hapus modal
+    recalculateAllSaldos(keuanganSheet);
+    
+    Browser.msgBox('Remove Complete', 
+      `Berhasil menghapus ${rowsToDelete.length} entry "Modal Awal" otomatis.\n\nSystem sekarang mulai dari saldo 0.\n\nSilakan input modal Anda sendiri dengan tanggal yang tepat.`, 
+      Browser.Buttons.OK);
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Error removing modal: ' + error.toString(), Browser.Buttons.OK);
+  }
+}
+
+// UTILITY: Function untuk verify saldo calculation
+function verifySaldoCalculation() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const keuanganSheet = ss.getSheetByName('KEUANGAN');
+    
+    const data = keuanganSheet.getDataRange().getValues();
+    if (data.length <= 2) {
+      Browser.msgBox('Verify Saldo', 'Belum ada data keuangan untuk diverifikasi.', Browser.Buttons.OK);
+      return;
+    }
+    
+    let calculatedBalance = 0;
+    const issues = [];
+    
+    // Verify each row's saldo calculation
+    data.slice(2).forEach((row, index) => {
+      const rowNumber = index + 3; // Actual row number in sheet
+      const tipe = row[2];
+      const jumlah = row[3];
+      const recordedSaldo = row[4];
+      
+      // Update calculated balance
+      if (tipe === 'Masuk') {
+        calculatedBalance += jumlah;
+      } else {
+        calculatedBalance -= jumlah;
+      }
+      
+      // Check if recorded saldo matches calculated
+      if (Math.abs(calculatedBalance - recordedSaldo) > 1) { // 1 rupiah tolerance
+        issues.push(`Row ${rowNumber}: Calculated ${formatRupiah(calculatedBalance)}, Recorded ${formatRupiah(recordedSaldo)}`);
+      }
+    });
+    
+    if (issues.length === 0) {
+      Browser.msgBox('Verify Saldo', 
+        `✅ Semua saldo sudah akurat!\n\nSaldo akhir: ${formatRupiah(calculatedBalance)}\nTotal transaksi: ${data.length - 2}`, 
+        Browser.Buttons.OK);
+    } else {
+      let message = `❌ Ditemukan ${issues.length} kesalahan saldo:\n\n`;
+      issues.slice(0, 5).forEach(issue => {
+        message += `• ${issue}\n`;
+      });
+      if (issues.length > 5) {
+        message += `... dan ${issues.length - 5} lainnya\n`;
+      }
+      message += '\nGunakan "Recalculate All Saldos" untuk memperbaiki.';
+      
+      Browser.msgBox('Saldo Issues', message, Browser.Buttons.OK);
+    }
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Error verifying saldo: ' + error.toString(), Browser.Buttons.OK);
+  }
+}
+
+// ========== AUTO-SYNC KEUANGAN WITH TRANSACTIONS ==========
+
+// Trigger otomatis ketika ada edit di sheet
+function onEdit(e) {
+  try {
+    const sheet = e.source.getActiveSheet();
+    const sheetName = sheet.getName();
+    
+    // Jika edit di BARANG_MASUK atau BARANG_KELUAR
+    if (sheetName === 'BARANG_MASUK' || sheetName === 'BARANG_KELUAR') {
+      console.log(`Edit detected in ${sheetName}, triggering sync...`);
+      
+      // Rebuild keuangan after a short delay to allow multiple edits
+      Utilities.sleep(1000); // Wait 1 second
+      syncKeuanganWithTransactions();
+    }
+  } catch (error) {
+    console.error('onEdit trigger error:', error);
+  }
+}
+
+// Fungsi untuk sync KEUANGAN dengan BARANG_MASUK dan BARANG_KELUAR
+function syncKeuanganWithTransactions() {
+  try {
+    console.log('Starting KEUANGAN sync...');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Rebuild keuangan chronologically
+    rebuildKeuanganChronologically(ss);
+    
+    // Update stok juga
+    updateStokRealOptimized();
+    
+    console.log('KEUANGAN sync completed');
+    
+    return {
+      success: true,
+      message: 'KEUANGAN berhasil di-sync dengan transaksi!'
+    };
+    
+  } catch (error) {
+    console.error('syncKeuanganWithTransactions error:', error);
+    return {
+      success: false,
+      message: 'Error syncing KEUANGAN: ' + error.toString()
+    };
+  }
+}
+
+// Fungsi manual untuk rebuild KEUANGAN (bisa dipanggil dari menu)
+function manualRebuildKeuangan() {
+  try {
+    const confirm = Browser.msgBox('Rebuild KEUANGAN', 
+      '⚠️ Proses ini akan:\n\n' +
+      '1. Backup data KEUANGAN yang ada\n' +
+      '2. Rebuild KEUANGAN dari BARANG_MASUK dan BARANG_KELUAR\n' +
+      '3. Preserve entry manual (modal, dll)\n' +
+      '4. Recalculate semua saldo secara kronologis\n\n' +
+      'Lanjutkan?', 
+      Browser.Buttons.YES_NO);
+    
+    if (confirm !== 'yes') return;
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Create backup
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    const backupFile = ss.copy(`BACKUP_KEUANGAN_${timestamp}`);
+    
+    // Rebuild keuangan
+    const rebuildResult = rebuildKeuanganChronologically(ss);
+    
+    // Update stok
+    updateStokRealOptimized();
+    
+    const successMessage = 
+      `✅ KEUANGAN BERHASIL DI-REBUILD!\n\n` +
+      `📋 Backup: ${backupFile.getName()}\n` +
+      `💰 Transaksi diproses: ${rebuildResult.transactionsProcessed}\n` +
+      `💵 Saldo akhir: ${formatRupiah(rebuildResult.finalBalance)}\n` +
+      `📝 Entry manual preserved: ${rebuildResult.manualEntriesPreserved}\n\n` +
+      `Sekarang KEUANGAN sudah sinkron dengan BARANG_MASUK/KELUAR!`;
+    
+    Browser.msgBox('Rebuild Complete!', successMessage, Browser.Buttons.OK);
+    
+    return {
+      success: true,
+      backup: backupFile.getName(),
+      result: rebuildResult
+    };
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Rebuild gagal: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+// UPDATE: Improved rebuildKeuanganChronologically dengan better manual entry detection
+function rebuildKeuanganChronologically(ss) {
+  const keuanganSheet = ss.getSheetByName('KEUANGAN');
+  const masukSheet = ss.getSheetByName('BARANG_MASUK');
+  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+  const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+  
+  console.log('Starting keuangan rebuild...');
+  
+  // Backup existing keuangan data
+  const existingKeuanganData = keuanganSheet.getDataRange().getValues();
+  
+  // Cari entry manual (yang bukan dari transaksi barang)
+  const manualEntries = [];
+  existingKeuanganData.slice(2).forEach((row, index) => {
+    const keterangan = row[1] ? row[1].toString().toLowerCase() : '';
+    
+    // Manual entry = bukan "beli" dan bukan "jual"
+    if (!keterangan.includes('beli') && !keterangan.includes('jual')) {
+      manualEntries.push({
+        rowIndex: index + 3,
+        data: row,
+        date: new Date(row[0])
+      });
+    }
+  });
+  
+  console.log('Found manual entries:', manualEntries.length);
+  
+  // Clear keuangan (keep title and header)
+  if (keuanganSheet.getLastRow() > 2) {
+    keuanganSheet.getRange(3, 1, keuanganSheet.getLastRow() - 2, 6).clearContent();
+  }
+  
+  // Get product mapping untuk display name
+  const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
+  const hasProductID = headers.includes('Product_ID');
+  const produkData = produkSheet.getDataRange().getValues().slice(3);
+  const productMapping = {};
+  
+  produkData.forEach(row => {
+    if (hasProductID && row[0] && row[1]) {
+      productMapping[row[0]] = row[1]; // Product_ID -> Kode
+      productMapping[row[1]] = row[1]; // Kode -> Kode
+    } else if (row[0]) {
+      productMapping[row[0]] = row[0]; // Kode -> Kode
+    }
+  });
+  
+  // Collect all transactions
+  const allTransactions = [];
+  
+  // Add manual entries back
+  manualEntries.forEach(entry => {
+    allTransactions.push({
+      date: entry.date,
+      keterangan: entry.data[1],
+      tipe: entry.data[2],
+      jumlah: entry.data[3],
+      refNo: entry.data[5],
+      type: 'manual'
+    });
+  });
+  
+  // Add barang masuk (as pengeluaran)
+  const masukData = masukSheet.getDataRange().getValues().slice(2);
+  masukData.forEach(row => {
+    if (row[0] && row[3] && row[6]) {
+      const displayCode = productMapping[row[3]] || row[3];
+      allTransactions.push({
+        date: new Date(row[0]),
+        keterangan: `Beli ${displayCode} dari ${row[2]}`,
+        tipe: 'Keluar',
+        jumlah: row[6],
+        refNo: row[1],
+        type: 'masuk'
+      });
+    }
+  });
+  
+  // Add barang keluar (as pemasukan)
+  const keluarData = keluarSheet.getDataRange().getValues().slice(2);
+  keluarData.forEach(row => {
+    if (row[0] && row[3] && row[6]) {
+      const displayCode = productMapping[row[3]] || row[3];
+      allTransactions.push({
+        date: new Date(row[0]),
+        keterangan: `Jual ${displayCode} ke ${row[2]}`,
+        tipe: 'Masuk',
+        jumlah: row[6],
+        refNo: row[1],
+        type: 'keluar'
+      });
+    }
+  });
+  
+  console.log('Total transactions:', allTransactions.length);
+  
+  // Sort by date
+  allTransactions.sort((a, b) => a.date - b.date);
+  
+  // Rebuild with running balance
+  let currentSaldo = 0;
+  let transactionsProcessed = 0;
+  
+  allTransactions.forEach(transaction => {
+    // Calculate balance
+    if (transaction.tipe === 'Masuk') {
+      currentSaldo += transaction.jumlah;
+    } else {
+      currentSaldo -= transaction.jumlah;
+    }
+    
+    // Create row
+    const keuanganRow = [
+      Utilities.formatDate(transaction.date, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'),
+      transaction.keterangan,
+      transaction.tipe,
+      transaction.jumlah,
+      currentSaldo,
+      transaction.refNo || '-'
+    ];
+    
+    keuanganSheet.appendRow(keuanganRow);
+    
+    // Format
+    const lastRow = keuanganSheet.getLastRow();
+    simpleFormat('KEUANGAN', lastRow);
+    
+    transactionsProcessed++;
+  });
+  
+  console.log('Keuangan rebuild completed');
+  
+  return {
+    transactionsProcessed: transactionsProcessed,
+    finalBalance: currentSaldo,
+    manualEntriesPreserved: manualEntries.length,
+    startingBalance: 0
+  };
+}
+
+
+function sortBarangMasukByDate() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    
+    if (!masukSheet) {
+      Browser.msgBox('Error', 'Sheet BARANG_MASUK tidak ditemukan!', Browser.Buttons.OK);
+      return { success: false, message: 'Sheet not found' };
+    }
+    
+    const lastRow = masukSheet.getLastRow();
+    
+    // Jika tidak ada data (hanya title dan header), skip
+    if (lastRow <= 2) {
+      Browser.msgBox('Info', 'BARANG_MASUK tidak memiliki data untuk diurutkan.', Browser.Buttons.OK);
+      return { success: true, message: 'No data to sort' };
+    }
+    
+    // Get data range (skip title row 1 and header row 2)
+    const dataRange = masukSheet.getRange(3, 1, lastRow - 2, masukSheet.getLastColumn());
+    
+    // Sort by column 1 (Tanggal), ascending
+    dataRange.sort({column: 1, ascending: true});
+    
+    Browser.msgBox('Success', `BARANG_MASUK berhasil diurutkan! (${lastRow - 2} baris data)`, Browser.Buttons.OK);
+    
+    return { 
+      success: true, 
+      message: 'BARANG_MASUK sorted successfully',
+      rowsSorted: lastRow - 2
+    };
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Gagal mengurutkan BARANG_MASUK: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+function sortBarangKeluarByDate() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    
+    if (!keluarSheet) {
+      Browser.msgBox('Error', 'Sheet BARANG_KELUAR tidak ditemukan!', Browser.Buttons.OK);
+      return { success: false, message: 'Sheet not found' };
+    }
+    
+    const lastRow = keluarSheet.getLastRow();
+    
+    // Jika tidak ada data (hanya title dan header), skip
+    if (lastRow <= 2) {
+      Browser.msgBox('Info', 'BARANG_KELUAR tidak memiliki data untuk diurutkan.', Browser.Buttons.OK);
+      return { success: true, message: 'No data to sort' };
+    }
+    
+    // Get data range (skip title row 1 and header row 2)
+    const dataRange = keluarSheet.getRange(3, 1, lastRow - 2, keluarSheet.getLastColumn());
+    
+    // Sort by column 1 (Tanggal), ascending
+    dataRange.sort({column: 1, ascending: true});
+    
+    Browser.msgBox('Success', `BARANG_KELUAR berhasil diurutkan! (${lastRow - 2} baris data)`, Browser.Buttons.OK);
+    
+    return { 
+      success: true, 
+      message: 'BARANG_KELUAR sorted successfully',
+      rowsSorted: lastRow - 2
+    };
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Gagal mengurutkan BARANG_KELUAR: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+function sortAllTransactionsByDate() {
+  try {
+    console.log('Sorting all transactions by date...');
+    
+    const resultMasuk = sortBarangMasukByDate();
+    const resultKeluar = sortBarangKeluarByDate();
+    
+    if (resultMasuk.success && resultKeluar.success) {
+      const totalRows = (resultMasuk.rowsSorted || 0) + (resultKeluar.rowsSorted || 0);
+      Browser.msgBox('Success', 
+        `Semua transaksi berhasil diurutkan berdasarkan tanggal!\n\n` +
+        `BARANG_MASUK: ${resultMasuk.rowsSorted || 0} baris\n` +
+        `BARANG_KELUAR: ${resultKeluar.rowsSorted || 0} baris\n` +
+        `Total: ${totalRows} baris`, 
+        Browser.Buttons.OK);
+      
+      return {
+        success: true,
+        message: 'All transactions sorted',
+        masukRows: resultMasuk.rowsSorted || 0,
+        keluarRows: resultKeluar.rowsSorted || 0
+      };
+    } else {
+      return {
+        success: false,
+        message: 'Some sheets failed to sort'
+      };
+    }
+    
+  } catch (error) {
+    Browser.msgBox('Error', 'Gagal mengurutkan transaksi: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+// ENHANCED: Auto-sort after save (untuk dipanggil dari save functions)
+function autoSortAfterTransaction(sheetName) {
+  try {
+    console.log(`Auto-sorting ${sheetName} after transaction...`);
+    
+    if (sheetName === 'BARANG_MASUK') {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const masukSheet = ss.getSheetByName('BARANG_MASUK');
+      
+      if (masukSheet && masukSheet.getLastRow() > 2) {
+        const dataRange = masukSheet.getRange(3, 1, masukSheet.getLastRow() - 2, masukSheet.getLastColumn());
+        dataRange.sort({column: 1, ascending: true});
+        console.log('BARANG_MASUK auto-sorted');
+      }
+    } else if (sheetName === 'BARANG_KELUAR') {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+      
+      if (keluarSheet && keluarSheet.getLastRow() > 2) {
+        const dataRange = keluarSheet.getRange(3, 1, keluarSheet.getLastRow() - 2, keluarSheet.getLastColumn());
+        dataRange.sort({column: 1, ascending: true});
+        console.log('BARANG_KELUAR auto-sorted');
+      }
+    }
+  } catch (error) {
+    console.error('Auto-sort error:', error);
+    // Don't throw error, just log it
+  }
+}
+
+function manualSortTransactions() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Sort BARANG_MASUK
+    const masukSheet = ss.getSheetByName('BARANG_MASUK');
+    if (masukSheet && masukSheet.getLastRow() > 2) {
+      const dataRange = masukSheet.getRange(3, 1, masukSheet.getLastRow() - 2, masukSheet.getLastColumn());
+      dataRange.sort({column: 1, ascending: false}); // Sort descending by date
+      console.log('BARANG_MASUK sorted');
+    }
+    
+    // Sort BARANG_KELUAR
+    const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+    if (keluarSheet && keluarSheet.getLastRow() > 2) {
+      const dataRange = keluarSheet.getRange(3, 1, keluarSheet.getLastRow() - 2, keluarSheet.getLastColumn());
+      dataRange.sort({column: 1, ascending: false}); // Sort descending by date
+      console.log('BARANG_KELUAR sorted');
+    }
+    
+    Browser.msgBox('Sort Complete!', 
+      '✅ Transaksi berhasil diurutkan berdasarkan tanggal!\n\n' +
+      'BARANG_MASUK dan BARANG_KELUAR sekarang tersort dari yang terbaru.', 
+      Browser.Buttons.OK);
+    
+    return { success: true, message: 'Transactions sorted by date' };
+    
+  } catch (error) {
+    console.error('manualSortTransactions error:', error);
+    Browser.msgBox('Error', 'Gagal sort transaksi: ' + error.toString(), Browser.Buttons.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('🛠️ Data Management')
+    .addItem('🆔 Setup Product_ID System', 'setupProductIDSystem')
+    .addItem('🔄 Migrate Existing Data', 'migrateExistingData')
+    .addSeparator()
+    .addItem('📅 Sort Transactions by Date', 'manualSortTransactions')  // <-- BARU!
+    .addItem('📊 Sort BARANG_MASUK by Date', 'sortBarangMasukByDate')
+    .addItem('📊 Sort BARANG_KELUAR by Date', 'sortBarangKeluarByDate')
+    .addItem('📊 Sort ALL Transactions by Date', 'sortAllTransactionsByDate')
+    .addSeparator()
+    .addItem('🔍 Verify Keuangan Data', 'verifyKeuanganBeforeRebuild')
+    .addItem('💰 Rebuild KEUANGAN (Manual)', 'manualRebuildKeuangan')
+    .addItem('📊 Refresh Stok Real', 'updateStokRealOptimized')
+    .addSeparator()
+    .addItem('📅 Check Data Chronology', 'checkDataChronology')
+    .addItem('🔀 Sort Data by Date (Full Repair)', 'sortDataByDate')
+    .addSeparator()
+    .addItem('💵 Remove Auto Modal Awal', 'removeAllModalAwal')
+    .addItem('🧮 Verify Saldo Calculation', 'verifySaldoCalculation')
+    .addSeparator()
+    .addItem('↩️ Rollback Migration', 'rollbackMigration')
+    .addItem('🧹 Clean Orphan Codes', 'cleanOrphanedProductCodes')
+    .addSeparator()
+    .addItem('🔧 Fix Corrupted Data', 'fixCorruptedData')
+    .addItem('🔍 Find Missing Products', 'findMissingProducts')
+    .addItem('📋 Create Backup', 'createDataBackup')
+    .addToUi();
+}
