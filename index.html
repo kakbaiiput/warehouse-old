@@ -1,0 +1,3047 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Inventory - Dimsum Warehouse</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --accent-color: #007bff;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --info-color: #17a2b8;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #2d3748;
+            --bg-secondary: #1a202c;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --border-color: #4a5568;
+            --accent-color: #4299e1;
+            --success-color: #68d391;
+            --warning-color: #f6e05e;
+            --danger-color: #f56565;
+            --info-color: #4fd1c7;
+            --shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0.8rem;
+        }
+
+        .header {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            color: var(--accent-color);
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+
+        .btn-success { background: var(--success-color); }
+        .btn-warning { background: var(--warning-color); color: #000; }
+        .btn-info { background: var(--info-color); }
+
+        .connection-status {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .status-disconnected {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-primary);
+            padding: 1.2rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            transition: transform 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .card {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .card h3 {
+            color: var(--accent-color);
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .mobile-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .mobile-table th,
+        .mobile-table td {
+            padding: 0.8rem 0.6rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            word-wrap: break-word;
+        }
+
+        .mobile-table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .mobile-table tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .financial-cards {
+            display: none;
+        }
+
+        .price-analysis-cards {
+            display: none;
+        }
+
+        .price-analysis-table {
+            display: block;
+        }
+
+        .price-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow);
+        }
+
+        .price-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.6rem;
+            gap: 0.5rem;
+        }
+
+        .price-card-title {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        .price-card-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+            margin-bottom: 0.6rem;
+            padding: 0.6rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .price-card-item {
+            text-align: center;
+        }
+
+        .price-card-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.2rem;
+        }
+
+        .price-card-value {
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .price-card-details {
+            display: flex;
+            justify-content: space-around;
+            gap: 0.5rem;
+            padding-top: 0.6rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .price-detail {
+            text-align: center;
+            flex: 1;
+        }
+
+        .price-detail-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.2rem;
+        }
+
+        .price-detail-value {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .price-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
+        }
+
+        .price-status-badge .status-icon {
+            display: inline-block;
+            font-size: 0.85rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .price-status-badge .status-text {
+            display: inline-block;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        #price-analysis-container {
+            min-height: 100px;
+        }
+
+        .financial-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow);
+        }
+
+        .financial-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.8rem;
+        }
+
+        .financial-card-date {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+        }
+
+        .financial-card-amount {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .financial-card-details {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .financial-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .financial-detail-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .financial-detail-value {
+            font-weight: 500;
+        }
+
+        .stock-cards {
+            display: none;
+        }
+
+        .stock-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .stock-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+            gap: 0.5rem;
+        }
+
+        .stock-card-title-wrap {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .stock-card-title {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            margin-bottom: 0.2rem;
+            line-height: 1.3;
+        }
+
+        .stock-card-code {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+
+        .stock-card-status-badge {
+            flex-shrink: 0;
+            padding: 0.4rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .stock-card-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.8rem;
+            margin-bottom: 0.6rem;
+            padding: 0.6rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .stock-card-sisa {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stock-card-sisa-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.2rem;
+        }
+
+        .stock-card-sisa-value {
+            font-size: 1.8rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .stock-card-sisa-unit {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 0.1rem;
+        }
+
+        .stock-card-min {
+            text-align: center;
+            padding: 0.4rem;
+            background: var(--bg-primary);
+            border-radius: 4px;
+        }
+
+        .stock-card-min-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .stock-card-min-value {
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        .stock-card-details {
+            display: flex;
+            justify-content: space-around;
+            gap: 0.5rem;
+            padding-top: 0.6rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stock-detail {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stock-detail-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 0.2rem;
+        }
+
+        .stock-detail-value {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .stock-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stock-card-update {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+        }
+
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-low { 
+            background: var(--danger-color); 
+            color: white;
+            box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);
+        }
+        .status-medium { 
+            background: var(--warning-color); 
+            color: #000;
+            box-shadow: 0 2px 6px rgba(255, 193, 7, 0.3);
+        }
+        .status-high { 
+            background: var(--success-color); 
+            color: white;
+            box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+        }
+        .status-empty { 
+            background: #8b0000; 
+            color: white; 
+            animation: pulse 2s infinite;
+            box-shadow: 0 2px 8px rgba(139, 0, 0, 0.4);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pagination-info {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .pagination-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .page-size-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .page-size-select {
+            padding: 0.4rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+        }
+
+        .sort-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-select {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 150px;
+        }
+
+        .sort-select {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 160px;
+        }
+
+        .stock-search-container {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .stock-search-box {
+            flex: 1;
+            padding: 0.5rem 0.8rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .stock-search-box:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background: var(--bg-primary);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .stock-search-box::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        .clear-search-btn {
+            background: var(--text-secondary);
+            color: white;
+            border: none;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
+        }
+
+        .clear-search-btn:hover:not(:disabled) {
+            background: var(--danger-color);
+            transform: translateY(-1px);
+        }
+
+        .clear-search-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stock-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.8rem;
+        }
+
+        .stock-header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pagination-sticky {
+            position: sticky;
+            background: var(--bg-primary);
+            z-index: 100;
+            padding: 0.8rem;
+            margin: -1.2rem -1.2rem 0.8rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+
+        .pagination-sticky.top {
+            top: 0;
+        }
+
+        .pagination-sticky.bottom {
+            bottom: 0;
+            margin: 0.8rem -1.2rem -1.2rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+            background: var(--bg-primary);
+            border-radius: 12px;
+            margin: 1rem 0;
+        }
+
+        .spinner {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1rem;
+        }
+
+        .recent-transactions {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .transaction-item {
+            padding: 0.8rem;
+            border-left: 4px solid var(--accent-color);
+            background: var(--bg-secondary);
+            margin-bottom: 0.6rem;
+            border-radius: 0 6px 6px 0;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-item:hover {
+            background: var(--border-color);
+            transform: translateX(3px);
+        }
+
+        .transaction-meta {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 0.3rem;
+        }
+
+        .amount-positive { 
+            color: var(--success-color); 
+            font-weight: bold; 
+        }
+        .amount-negative { 
+            color: var(--danger-color); 
+            font-weight: bold; 
+        }
+
+        .error-message {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+            padding: 1.2rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border: 1px solid var(--danger-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .last-update {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .view-all-btn {
+            background: var(--info-color);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .view-all-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: var(--bg-primary);
+            margin: 2% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: var(--accent-color);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.3s ease;
+        }
+
+        .close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-controls {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.6rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .modal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .modal-table th,
+        .modal-table td {
+            padding: 0.8rem 0.6rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .modal-table tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.5rem;
+            }
+            
+            .header {
+                text-align: center;
+                padding: 1rem;
+            }
+            
+            .controls {
+                justify-content: center;
+                margin-top: 1rem;
+                width: 100%;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.8rem;
+            }
+            
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .stat-value {
+                font-size: 1.3rem;
+            }
+
+            .modal-content {
+                width: 98%;
+                margin: 1% auto;
+                max-height: 95vh;
+            }
+            
+            .modal-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .search-box {
+                min-width: auto;
+            }
+
+            .table-container .mobile-table {
+                display: none;
+            }
+
+            .stock-cards {
+                display: block;
+            }
+
+            .financial-cards {
+                display: block;
+            }
+
+            .price-analysis-cards {
+                display: block;
+            }
+
+            .price-analysis-table {
+                display: none !important;
+            }
+
+            .price-card {
+                padding: 0.6rem;
+                margin-bottom: 0.6rem;
+            }
+
+            .price-card-title {
+                font-size: 0.9rem;
+            }
+
+            .price-card-header {
+                align-items: flex-start;
+            }
+
+            .price-card-header > div:first-child {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .price-card-main {
+                gap: 0.5rem;
+                padding: 0.5rem;
+            }
+
+            .price-card-title {
+                font-size: 0.85rem;
+            }
+
+            .price-card-header {
+                gap: 0.4rem;
+            }
+
+            .price-card-header .status-badge {
+                font-size: 0.65rem;
+                padding: 0.25rem 0.5rem;
+            }
+
+            .price-status-badge .status-icon {
+                display: none;
+            }
+
+            .price-status-badge .status-text {
+                font-size: 0.7rem;
+            }
+
+            .pagination-container {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.8rem;
+            }
+
+            .pagination-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .section-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.8rem;
+            }
+
+            .btn {
+                font-size: 0.8rem;
+                padding: 0.5rem 1rem;
+            }
+
+            .sort-controls {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .filter-select {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .sort-select {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .stock-header-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .stock-header-left {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .stock-header-left h3 {
+                text-align: center;
+            }
+
+            .stock-search-container {
+                max-width: 100%;
+            }
+
+            .clear-search-btn {
+                padding: 0.5rem 0.6rem;
+                font-size: 0.75rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0.3rem;
+            }
+
+            .header {
+                padding: 0.8rem;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 0.6rem;
+            }
+
+            .stat-card {
+                padding: 0.8rem;
+            }
+
+            .stat-value {
+                font-size: 1.2rem;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .stock-card {
+                padding: 0.6rem;
+                margin-bottom: 0.6rem;
+            }
+
+            .stock-card-title {
+                font-size: 0.9rem;
+            }
+
+            .stock-card-sisa-value {
+                font-size: 1.5rem;
+            }
+
+            .stock-card-main {
+                gap: 0.6rem;
+                padding: 0.5rem;
+            }
+
+            .btn {
+                font-size: 0.75rem;
+                padding: 0.4rem 0.8rem;
+            }
+
+            .stock-search-box {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.7rem;
+            }
+
+            .clear-search-btn {
+                padding: 0.4rem 0.5rem;
+                font-size: 0.75rem;
+            }
+
+            .sort-select {
+                font-size: 0.8rem;
+            }
+
+            .filter-select {
+                font-size: 0.8rem;
+                min-width: 0;
+            }
+
+            .view-all-btn {
+                font-size: 0.75rem;
+                padding: 0.35rem 0.7rem;
+                width: 100%;
+            }
+
+            .price-card-header .status-badge {
+                font-size: 0.6rem;
+                padding: 0.2rem 0.4rem;
+                letter-spacing: 0.3px;
+            }
+
+            .price-status-badge .status-icon {
+                display: none;
+            }
+
+            .price-status-badge .status-text {
+                font-size: 0.65rem;
+                font-weight: 700;
+            }
+
+            .price-card-value {
+                font-size: 0.85rem;
+            }
+
+            .price-detail-value {
+                font-size: 0.8rem;
+            }
+
+            .price-analysis-info {
+                font-size: 0.75rem !important;
+                padding: 0.6rem !important;
+                line-height: 1.5;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📊 Dashboard Inventory</h1>
+                <p class="subtitle">Real-time Monitoring Gudang Dimsum - rt.octolink.id</p>
+            </div>
+            <div class="controls">
+                <div class="connection-status" id="connection-status">
+                    🔌 Checking...
+                </div>
+                <button class="btn" onclick="toggleTheme()">🌙 Dark</button>
+                <button class="btn btn-info" onclick="refreshData()">🔄 Refresh</button>
+                <a href="input.html" class="btn btn-success">➕ Input Data</a>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <h3>Memuat data dashboard...</h3>
+            <p>Mohon tunggu sebentar</p>
+        </div>
+
+        <div id="dashboard-content" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-value" style="color: var(--success-color);" id="total-saldo">Rp 0</div>
+                    <div class="stat-label">Saldo Kas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-value" style="color: var(--info-color);" id="total-produk">0</div>
+                    <div class="stat-label">Jenis Produk</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-value" style="color: var(--accent-color);" id="total-stok">0</div>
+                    <div class="stat-label">Total Stok (Pack)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-value" style="color: var(--warning-color);" id="stok-rendah">0</div>
+                    <div class="stat-label">Stok Kritis/Habis</div>
+                </div>
+            </div>
+
+            <div class="card" id="stock-card">
+                <div class="stock-header-row">
+                    <div class="stock-header-left">
+                        <h3>📦 Stok Real-time</h3>
+                        <div class="stock-search-container">
+                            <input type="text" id="stock-search-input" class="stock-search-box" placeholder="🔍 Cari produk..." onkeyup="filterStockData()">
+                            <button class="clear-search-btn" id="clear-search-btn" onclick="clearStockSearch()" disabled title="Reset pencarian dan filter">Reset</button>
+                        </div>
+                    </div>
+                    <div class="sort-controls">
+                        <select id="stock-status-filter" class="filter-select" onchange="changeStatusFilter()">
+                            <option value="all">📊 Semua Status</option>
+                            <option value="empty">🚨 Habis</option>
+                            <option value="low">🔴 Kritis</option>
+                            <option value="medium">🟡 Rendah</option>
+                            <option value="high">🟢 Aman</option>
+                        </select>
+                        <select id="stock-sort-select" class="sort-select" onchange="changeStockSort()">
+                            <option value="stock-asc">📉 Stok Terendah</option>
+                            <option value="stock-desc">📈 Stok Tertinggi</option>
+                            <option value="code-asc">🔤 Kode A-Z</option>
+                            <option value="code-desc">🔤 Kode Z-A</option>
+                        </select>
+                        <button class="view-all-btn" onclick="showFullReport('stok')">👁️ View All</button>
+                    </div>
+                </div>
+
+                <div class="pagination-container" id="stock-pagination-top">
+                    <div class="pagination-info" id="stock-pagination-info">
+                        Showing 1-10 of 0 products
+                    </div>
+                    <div class="page-size-selector">
+                        <label for="stock-page-size">Show:</label>
+                        <select id="stock-page-size" class="page-size-select" onchange="changeStockPageSize()">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                    <div class="pagination-controls" id="stock-pagination-controls-top">
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="mobile-table" id="stok-table">
+                        <thead>
+                            <tr>
+                                <th>Kode</th>
+                                <th>Nama Produk</th>
+                                <th>Masuk</th>
+                                <th>Keluar</th>
+                                <th>Sisa</th>
+                                <th>Status</th>
+                                <th>Update</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stok-tbody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="stock-cards" id="stock-cards">
+                </div>
+
+                <div class="pagination-container" id="stock-pagination-bottom">
+                    <div class="pagination-info" id="stock-pagination-info-bottom">
+                        Showing 1-10 of 0 products
+                    </div>
+                    <div class="page-size-selector">
+                        <label for="stock-page-size-bottom">Show:</label>
+                        <select id="stock-page-size-bottom" class="page-size-select" onchange="changeStockPageSizeBottom()">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                    <div class="pagination-controls" id="stock-pagination-controls-bottom">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <div class="section-header">
+                        <h3>📥 Transaksi Barang Masuk Terbaru</h3>
+                        <button class="view-all-btn" onclick="showFullReport('masuk')">👁️ View All</button>
+                    </div>
+                    <div class="recent-transactions" id="recent-masuk">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-header">
+                        <h3>📤 Transaksi Barang Keluar Terbaru</h3>
+                        <button class="view-all-btn" onclick="showFullReport('keluar')">👁️ View All</button>
+                    </div>
+                    <div class="recent-transactions" id="recent-keluar">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header">
+                    <h3>💰 Ringkasan Keuangan</h3>
+                    <button class="view-all-btn" onclick="showFullReport('keuangan')">👁️ View All</button>
+                </div>
+                
+                <div class="table-container">
+                    <table class="mobile-table" id="keuangan-table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Keterangan</th>
+                                <th>Tipe</th>
+                                <th>Jumlah</th>
+                                <th>Saldo</th>
+                                <th>Ref</th>
+                            </tr>
+                        </thead>
+                        <tbody id="keuangan-tbody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="financial-cards" id="financial-cards">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="stock-header-row">
+                    <div class="stock-header-left">
+                        <h3>📈 Analisa Harga (Average Cost)</h3>
+                        <div class="stock-search-container">
+                            <input type="text" id="price-search-input" class="stock-search-box" placeholder="🔍 Cari produk..." onkeyup="filterPriceAnalysis()">
+                            <button class="clear-search-btn" id="clear-price-search-btn" onclick="clearPriceSearch()" disabled title="Reset pencarian dan filter">Reset</button>
+                        </div>
+                    </div>
+                    <div class="sort-controls">
+                        <select id="price-sort-select" class="sort-select" onchange="changePriceSort()" style="min-width: 180px;">
+                            <option value="code-asc">🔤 Kode A-Z</option>
+                            <option value="code-desc">🔤 Kode Z-A</option>
+                            <option value="avg-asc">💰 Harga Rata-rata ↑</option>
+                            <option value="avg-desc">💰 Harga Rata-rata ↓</option>
+                            <option value="last-asc">🏷️ Harga Terakhir ↑</option>
+                            <option value="last-desc">🏷️ Harga Terakhir ↓</option>
+                        </select>
+                        <button class="view-all-btn" onclick="loadPriceAnalysis()">🔍 Load Data</button>
+                    </div>
+                </div>
+                <div id="price-analysis-container">
+                    <p style="text-align: center; color: var(--text-secondary); padding: 1rem;">
+                        Klik "Load Data" untuk melihat analisa harga rata-rata per produk
+                    </p>
+                </div>
+            </div>
+
+            <div class="last-update">
+                <div class="auto-refresh">🔄 Auto refresh: 10 menit</div>
+                <div id="last-update-time">-</div>
+            </div>
+
+            <div style="text-align: center; margin-top: 1rem; padding: 0.5rem; color: var(--text-secondary); font-size: 0.7rem; opacity: 0.7; word-break: break-all;">
+                🔗 API: <span id="api-url-display">Loading...</span>
+            </div>
+        </div>
+
+        <div id="error-container"></div>
+
+        <div id="fullReportModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">📊 Laporan Lengkap</h3>
+                    <button class="close" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-controls">
+                        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Cari data..." onkeyup="filterModalData()">
+                    </div>
+                    <div class="table-container">
+                        <table id="modalTable" class="modal-table">
+                            <thead id="modalTableHead">
+                            </thead>
+                            <tbody id="modalTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            API_URL: 'https://script.google.com/macros/s/AKfycbw-R0kRZy2IZnRp1rzUTdtRjVbVn-3xZnk9fADPmufbUK_ls1dH30JHI10fd63lXMBTsg/exec',
+            REFRESH_INTERVAL: 600000,
+            REQUEST_TIMEOUT: 20000
+        };
+
+        let dashboardData = null;
+        let masterData = null;
+        let refreshInterval = null;
+        let currentModalData = [];
+        let currentModalType = '';
+        let currentStockPage = 1;
+        let stockPageSize = 10;
+        let filteredStockData = [];
+        let currentStockSort = 'stock-asc';
+        let stockSearchTerm = '';
+        let currentStatusFilter = 'all';
+        let priceAnalysisData = null;
+        let filteredPriceData = [];
+        let priceSearchTerm = '';
+        let currentPriceSort = 'code-asc';
+
+        window.addEventListener('load', () => {
+            loadTheme();
+            initializeApp();
+            initializeEventListeners();
+        });
+
+        function initializeApp() {
+            document.getElementById('api-url-display').textContent = CONFIG.API_URL;
+            checkConnection();
+            loadMasterData().then(() => {
+                loadDashboardData();
+            });
+            startAutoRefresh();
+        }
+
+        function initializeEventListeners() {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    stopAutoRefresh();
+                } else {
+                    startAutoRefresh();
+                }
+            });
+
+            // Mobile pagination sticky positioning
+            if (window.innerWidth <= 768) {
+                const stockCard = document.getElementById('stock-card');
+                const paginationTop = document.getElementById('stock-pagination-top');
+                const paginationBottom = document.getElementById('stock-pagination-bottom');
+                
+                let lastScrollY = window.scrollY;
+                
+                window.addEventListener('scroll', () => {
+                    if (!stockCard) return;
+                    
+                    const cardRect = stockCard.getBoundingClientRect();
+                    const scrollY = window.scrollY;
+                    const scrollingDown = scrollY > lastScrollY;
+                    
+                    // Check if card is in viewport
+                    if (cardRect.top < window.innerHeight && cardRect.bottom > 0) {
+                        // Card is visible
+                        if (cardRect.top > 100) {
+                            // Top of card is visible, show top pagination
+                            paginationTop.classList.add('pagination-sticky', 'top');
+                            paginationBottom.classList.remove('pagination-sticky', 'bottom');
+                        } else if (cardRect.bottom < window.innerHeight - 100) {
+                            // Bottom of card is visible, show bottom pagination
+                            paginationTop.classList.remove('pagination-sticky', 'top');
+                            paginationBottom.classList.add('pagination-sticky', 'bottom');
+                        } else {
+                            // Middle of card, decide based on scroll direction
+                            if (scrollingDown) {
+                                paginationTop.classList.remove('pagination-sticky', 'top');
+                                paginationBottom.classList.add('pagination-sticky', 'bottom');
+                            } else {
+                                paginationTop.classList.add('pagination-sticky', 'top');
+                                paginationBottom.classList.remove('pagination-sticky', 'bottom');
+                            }
+                        }
+                    } else {
+                        // Card not in viewport, remove sticky
+                        paginationTop.classList.remove('pagination-sticky', 'top');
+                        paginationBottom.classList.remove('pagination-sticky', 'bottom');
+                    }
+                    
+                    lastScrollY = scrollY;
+                }, { passive: true });
+            }
+        }
+
+        async function loadMasterData() {
+            try {
+                console.log('Loading master data...');
+                const result = await makeJSONPRequest('getMasterData');
+                if (result && result.success) {
+                    masterData = result.data;
+                    console.log('Master data loaded:', {
+                        totalProducts: masterData.produk ? masterData.produk.length : 0
+                    });
+                } else {
+                    console.error('Failed to load master data:', result?.message);
+                }
+            } catch (error) {
+                console.error('Master data load error:', error);
+            }
+        }
+
+        function getProductStatus(productCode) {
+            if (!masterData || !masterData.produk) {
+                return 'Aktif';
+            }
+            
+            const normalizedCode = String(productCode).trim();
+            const product = masterData.produk.find(row => {
+                const code0 = String(row[0] || '').trim();
+                const code1 = String(row[1] || '').trim();
+                return code0 === normalizedCode || code1 === normalizedCode;
+            });
+            
+            if (product) {
+                const hasProductID = product[0] && String(product[0]).startsWith('PID');
+                const statusIndex = hasProductID ? 6 : 5;
+                const status = product[statusIndex];
+                return status ? String(status).trim() : 'Aktif';
+            }
+            
+            return 'Aktif';
+        }
+
+        function isProductActive(productCode) {
+            const status = getProductStatus(productCode);
+            const statusLower = String(status).toLowerCase().trim();
+            const inactiveStatuses = ['non aktif', 'nonaktif', 'tidak aktif', 'tidakaktif', 'inactive', 'disabled', 'off', 'no', '0', 'false'];
+            return !inactiveStatuses.includes(statusLower);
+        }
+
+        function getProductName(productCode) {
+            if (!masterData || !masterData.produk) {
+                return productCode;
+            }
+            
+            const product = masterData.produk.find(row => {
+                return row[0] === productCode || row[1] === productCode;
+            });
+            
+            if (product) {
+                const hasProductID = product[0] && String(product[0]).startsWith('PID');
+                return hasProductID ? (product[2] || productCode) : (product[1] || productCode);
+            }
+            
+            return productCode;
+        }
+
+        function enrichKeterangan(keterangan) {
+            if (!keterangan || !masterData || !masterData.produk) {
+                return keterangan;
+            }
+            
+            let enrichedText = keterangan;
+            const productCodes = masterData.produk.map(row => {
+                const hasProductID = row[0] && String(row[0]).startsWith('PID');
+                return hasProductID ? row[1] : row[0];
+            });
+            
+            productCodes.forEach(code => {
+                if (code && enrichedText.includes(code)) {
+                    const name = getProductName(code);
+                    const regex = new RegExp(`\\b${code}\\b`, 'g');
+                    enrichedText = enrichedText.replace(regex, `${name} (${code})`);
+                }
+            });
+            
+            return enrichedText;
+        }
+
+        async function checkConnection() {
+            const statusEl = document.getElementById('connection-status');
+            
+            try {
+                statusEl.className = 'connection-status';
+                statusEl.textContent = '🔄 Checking...';
+
+                const result = await makeJSONPRequest('test');
+
+                if (result && result.success) {
+                    statusEl.className = 'connection-status status-connected';
+                    statusEl.textContent = '✅ Connected';
+                } else {
+                    statusEl.className = 'connection-status status-disconnected';
+                    statusEl.textContent = '❌ API Error';
+                }
+            } catch (error) {
+                statusEl.className = 'connection-status status-disconnected';
+                statusEl.textContent = '❌ Connection Failed';
+                console.error('Connection check failed:', error);
+            }
+        }
+
+        async function loadDashboardData() {
+            showLoading(true);
+            
+            try {
+                const result = await makeJSONPRequest('getDashboardData');
+
+                if (result && result.success) {
+                    dashboardData = result.data;
+                    renderDashboard();
+                    updateLastUpdateTime();
+                    clearError();
+                } else {
+                    showError('Error loading dashboard: ' + (result?.message || 'Unknown error'));
+                }
+            } catch (error) {
+                showError('Failed to load dashboard: ' + error.message);
+                console.error('Dashboard load error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function makeJSONPRequest(action, data = null) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                let timeoutId;
+                
+                const script = document.createElement('script');
+                
+                window[callbackName] = function(data) {
+                    clearTimeout(timeoutId);
+                    delete window[callbackName];
+                    if (document.body.contains(script)) {
+                        document.body.removeChild(script);
+                    }
+                    resolve(data);
+                };
+                
+                script.onerror = function() {
+                    clearTimeout(timeoutId);
+                    delete window[callbackName];
+                    if (document.body.contains(script)) {
+                        document.body.removeChild(script);
+                    }
+                    reject(new Error('JSONP request failed'));
+                };
+                
+                let url = `${CONFIG.API_URL}?action=${action}&callback=${callbackName}`;
+                if (data) {
+                    url += '&data=' + encodeURIComponent(JSON.stringify(data));
+                }
+                
+                script.src = url;
+                document.body.appendChild(script);
+                
+                timeoutId = setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                        if (document.body.contains(script)) {
+                            document.body.removeChild(script);
+                        }
+                        reject(new Error(`Request timeout (${CONFIG.REQUEST_TIMEOUT/1000}s)`));
+                    }
+                }, CONFIG.REQUEST_TIMEOUT);
+            });
+        }
+
+        function renderDashboard() {
+            if (!dashboardData) return;
+            
+            updateStats();
+            prepareStockData();
+            renderStockTable();
+            renderRecentTransactions();
+            renderKeuanganTable();
+        }
+
+        function updateStats() {
+            const keuangan = dashboardData.keuangan;
+            const stok = dashboardData.stok;
+            
+            const activeStok = stok.filter(item => isProductActive(item[0]));
+            
+            const lastSaldo = keuangan.length > 0 ? keuangan[keuangan.length - 1][4] : 0;
+            document.getElementById('total-saldo').textContent = formatRupiah(lastSaldo);
+            
+            document.getElementById('total-produk').textContent = activeStok.length;
+            
+            const totalStok = activeStok.reduce((sum, item) => sum + (item[4] || 0), 0);
+            document.getElementById('total-stok').textContent = totalStok.toLocaleString('id-ID');
+            
+            const stokRendah = activeStok.filter(item => (item[4] || 0) < 10).length;
+            document.getElementById('stok-rendah').textContent = stokRendah;
+        }
+
+        function changeStockSort() {
+            currentStockSort = document.getElementById('stock-sort-select').value;
+            currentStockPage = 1;
+            prepareStockData();
+            renderStockTable();
+        }
+
+        function changeStatusFilter() {
+            currentStatusFilter = document.getElementById('stock-status-filter').value;
+            
+            // Enable clear button if any filter is active
+            const clearBtn = document.getElementById('clear-search-btn');
+            clearBtn.disabled = (stockSearchTerm === '' && currentStatusFilter === 'all');
+            
+            currentStockPage = 1;
+            prepareStockData();
+            renderStockTable();
+        }
+
+        function getStockStatus(sisaNum, minStokNum) {
+            if (sisaNum <= 0) {
+                return 'empty';
+            } else if (sisaNum < minStokNum) {
+                return 'low';
+            } else if (sisaNum < (minStokNum * 1.5)) {
+                return 'medium';
+            } else {
+                return 'high';
+            }
+        }
+
+        function filterStockData() {
+            const searchInput = document.getElementById('stock-search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            
+            stockSearchTerm = searchInput.value.toLowerCase().trim();
+            
+            // Enable/disable clear button if any filter is active
+            clearBtn.disabled = (stockSearchTerm === '' && currentStatusFilter === 'all');
+            
+            currentStockPage = 1;
+            prepareStockData();
+            renderStockTable();
+        }
+
+        function clearStockSearch() {
+            const searchInput = document.getElementById('stock-search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            const statusFilter = document.getElementById('stock-status-filter');
+            
+            searchInput.value = '';
+            stockSearchTerm = '';
+            clearBtn.disabled = true;
+            statusFilter.value = 'all';
+            currentStatusFilter = 'all';
+            
+            currentStockPage = 1;
+            prepareStockData();
+            renderStockTable();
+        }
+
+        function prepareStockData() {
+            if (!dashboardData || !dashboardData.stok) {
+                filteredStockData = [];
+                return;
+            }
+
+            filteredStockData = dashboardData.stok
+                .filter(item => {
+                    const productCode = item[0];
+                    if (!isProductActive(productCode)) return false;
+                    
+                    // Apply search filter
+                    if (stockSearchTerm) {
+                        const kode = String(item[0]).toLowerCase();
+                        const nama = String(item[1]).toLowerCase();
+                        if (!kode.includes(stockSearchTerm) && !nama.includes(stockSearchTerm)) {
+                            return false;
+                        }
+                    }
+                    
+                    // Apply status filter
+                    if (currentStatusFilter !== 'all') {
+                        const sisaNum = parseInt(item[4]) || 0;
+                        const minStokNum = parseInt(item[5]) || 10;
+                        const status = getStockStatus(sisaNum, minStokNum);
+                        
+                        if (status !== currentStatusFilter) {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                });
+            
+            // Apply sorting based on selected option
+            switch(currentStockSort) {
+                case 'stock-asc':
+                    filteredStockData.sort((a, b) => {
+                        const sisaA = parseInt(a[4]) || 0;
+                        const sisaB = parseInt(b[4]) || 0;
+                        return sisaA - sisaB;
+                    });
+                    break;
+                case 'stock-desc':
+                    filteredStockData.sort((a, b) => {
+                        const sisaA = parseInt(a[4]) || 0;
+                        const sisaB = parseInt(b[4]) || 0;
+                        return sisaB - sisaA;
+                    });
+                    break;
+                case 'code-asc':
+                    filteredStockData.sort((a, b) => {
+                        const codeA = String(a[0]).toUpperCase();
+                        const codeB = String(b[0]).toUpperCase();
+                        return codeA.localeCompare(codeB);
+                    });
+                    break;
+                case 'code-desc':
+                    filteredStockData.sort((a, b) => {
+                        const codeA = String(a[0]).toUpperCase();
+                        const codeB = String(b[0]).toUpperCase();
+                        return codeB.localeCompare(codeA);
+                    });
+                    break;
+            }
+            
+            console.log(`Active products: ${filteredStockData.length} / ${dashboardData.stok.length}, Sort: ${currentStockSort}, Search: "${stockSearchTerm}", Status: ${currentStatusFilter}`);
+        }
+
+        function renderStockTable() {
+            const tbody = document.getElementById('stok-tbody');
+            const stockCards = document.getElementById('stock-cards');
+            
+            tbody.innerHTML = '';
+            stockCards.innerHTML = '';
+            
+            if (filteredStockData.length === 0) {
+                let emptyMessage = 'Belum ada data stok aktif';
+                let emptyIcon = '📦';
+                
+                if (stockSearchTerm && currentStatusFilter !== 'all') {
+                    const statusLabels = {
+                        'empty': 'Habis',
+                        'low': 'Kritis',
+                        'medium': 'Rendah',
+                        'high': 'Aman'
+                    };
+                    emptyMessage = `Tidak ada produk "${stockSearchTerm}" dengan status ${statusLabels[currentStatusFilter]}`;
+                    emptyIcon = '🔍';
+                } else if (stockSearchTerm) {
+                    emptyMessage = `Tidak ada produk yang cocok dengan "${stockSearchTerm}"`;
+                    emptyIcon = '🔍';
+                } else if (currentStatusFilter !== 'all') {
+                    const statusLabels = {
+                        'empty': '🚨 Habis',
+                        'low': '🔴 Kritis',
+                        'medium': '🟡 Rendah',
+                        'high': '🟢 Aman'
+                    };
+                    emptyMessage = `Tidak ada produk dengan status ${statusLabels[currentStatusFilter]}`;
+                    emptyIcon = '📊';
+                }
+                
+                const emptyMsg = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <div class="empty-state-icon">${emptyIcon}</div>
+                            <div>${emptyMessage}</div>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML = emptyMsg;
+                stockCards.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">${emptyIcon}</div>
+                        <div>${emptyMessage}</div>
+                    </div>
+                `;
+                
+                // Hide pagination when no data
+                document.getElementById('stock-pagination-top').style.display = 'none';
+                document.getElementById('stock-pagination-bottom').style.display = 'none';
+                return;
+            }
+            
+            // Show pagination
+            document.getElementById('stock-pagination-top').style.display = 'flex';
+            document.getElementById('stock-pagination-bottom').style.display = 'flex';
+            
+            const totalItems = filteredStockData.length;
+            const totalPages = Math.ceil(totalItems / stockPageSize);
+            const startIndex = (currentStockPage - 1) * stockPageSize;
+            const endIndex = Math.min(startIndex + stockPageSize, totalItems);
+            const pageData = filteredStockData.slice(startIndex, endIndex);
+            
+            updatePaginationInfo(startIndex, endIndex, totalItems);
+            
+            pageData.forEach(item => {
+                const [kode, nama, masuk, keluar, sisa, minStok, update] = item;
+                
+                const sisaNum = parseInt(sisa) || 0;
+                const minStokNum = parseInt(minStok) || 10;
+                
+                let statusClass = 'status-high';
+                let statusText = 'Aman';
+                
+                if (sisaNum <= 0) {
+                    statusClass = 'status-empty';
+                    statusText = '🚨 Habis';
+                } else if (sisaNum < minStokNum) {
+                    statusClass = 'status-low';
+                    statusText = 'Kritis';
+                } else if (sisaNum < (minStokNum * 1.5)) {
+                    statusClass = 'status-medium';
+                    statusText = 'Rendah';
+                }
+                
+                const row = `
+                    <tr>
+                        <td><strong>${kode}</strong></td>
+                        <td>${nama}</td>
+                        <td>${masuk || 0}</td>
+                        <td>${keluar || 0}</td>
+                        <td><strong>${sisaNum}</strong></td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${formatDateTime(update)}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+
+                const stockCard = `
+                    <div class="stock-card">
+                        <div class="stock-card-header">
+                            <div class="stock-card-title-wrap">
+                                <div class="stock-card-title">${nama}</div>
+                                <div class="stock-card-code">${kode}</div>
+                            </div>
+                            <div class="stock-card-status-badge status-badge ${statusClass}">${statusText}</div>
+                        </div>
+                        
+                        <div class="stock-card-main">
+                            <div class="stock-card-sisa">
+                                <div class="stock-card-sisa-label">Stok Sisa</div>
+                                <div class="stock-card-sisa-value" style="color: ${sisaNum <= 0 ? 'var(--danger-color)' : sisaNum < minStokNum ? 'var(--warning-color)' : 'var(--success-color)'};">
+                                    ${sisaNum}
+                                </div>
+                                <div class="stock-card-sisa-unit">pack</div>
+                            </div>
+                            <div class="stock-card-min">
+                                <div class="stock-card-min-label">Min</div>
+                                <div class="stock-card-min-value">${minStokNum}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stock-card-details">
+                            <div class="stock-detail">
+                                <div class="stock-detail-label">📥 Masuk</div>
+                                <div class="stock-detail-value">${masuk || 0}</div>
+                            </div>
+                            <div class="stock-detail">
+                                <div class="stock-detail-label">📤 Keluar</div>
+                                <div class="stock-detail-value">${keluar || 0}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stock-card-footer">
+                            <div class="stock-card-update">🕐 ${formatDateTime(update)}</div>
+                        </div>
+                    </div>
+                `;
+                stockCards.innerHTML += stockCard;
+            });
+            
+            renderStockPagination(totalPages);
+        }
+
+        function updatePaginationInfo(startIndex, endIndex, totalItems) {
+            let filterInfo = '';
+            
+            if (stockSearchTerm) {
+                filterInfo += ` (pencarian: "${stockSearchTerm}")`;
+            }
+            
+            if (currentStatusFilter !== 'all') {
+                const statusLabels = {
+                    'empty': '🚨 Habis',
+                    'low': '🔴 Kritis',
+                    'medium': '🟡 Rendah',
+                    'high': '🟢 Aman'
+                };
+                filterInfo += ` (filter: ${statusLabels[currentStatusFilter]})`;
+            }
+            
+            const infoText = `Showing ${startIndex + 1}-${endIndex} of ${totalItems} products${filterInfo}`;
+            document.getElementById('stock-pagination-info').textContent = infoText;
+            document.getElementById('stock-pagination-info-bottom').textContent = infoText;
+        }
+
+        function renderStockPagination(totalPages) {
+            const paginationContainerTop = document.getElementById('stock-pagination-controls-top');
+            const paginationContainerBottom = document.getElementById('stock-pagination-controls-bottom');
+            
+            paginationContainerTop.innerHTML = '';
+            paginationContainerBottom.innerHTML = '';
+            
+            if (totalPages <= 1) return;
+            
+            const paginationHTML = generatePaginationButtons(totalPages);
+            paginationContainerTop.innerHTML = paginationHTML;
+            paginationContainerBottom.innerHTML = paginationHTML;
+        }
+
+        function generatePaginationButtons(totalPages) {
+            let html = '';
+            
+            // Previous button
+            html += `<button class="pagination-btn" ${currentStockPage === 1 ? 'disabled' : ''} onclick="goToStockPage(${currentStockPage - 1})">‹ Prev</button>`;
+            
+            // Page numbers
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentStockPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+            
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="pagination-btn ${i === currentStockPage ? 'active' : ''}" onclick="goToStockPage(${i})">${i}</button>`;
+            }
+            
+            // Next button
+            html += `<button class="pagination-btn" ${currentStockPage === totalPages ? 'disabled' : ''} onclick="goToStockPage(${currentStockPage + 1})">Next ›</button>`;
+            
+            return html;
+        }
+
+        function goToStockPage(page) {
+            const totalPages = Math.ceil(filteredStockData.length / stockPageSize);
+            if (page < 1 || page > totalPages) return;
+            
+            currentStockPage = page;
+            renderStockTable();
+        }
+
+        function changeStockPageSize() {
+            const newPageSize = parseInt(document.getElementById('stock-page-size').value);
+            document.getElementById('stock-page-size-bottom').value = newPageSize;
+            stockPageSize = newPageSize;
+            currentStockPage = 1;
+            renderStockTable();
+        }
+
+        function changeStockPageSizeBottom() {
+            const newPageSize = parseInt(document.getElementById('stock-page-size-bottom').value);
+            document.getElementById('stock-page-size').value = newPageSize;
+            stockPageSize = newPageSize;
+            currentStockPage = 1;
+            renderStockTable();
+        }
+
+        function renderRecentTransactions() {
+            const masukContainer = document.getElementById('recent-masuk');
+            masukContainer.innerHTML = '';
+            
+            if (dashboardData.recentMasuk.length === 0) {
+                masukContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📥</div>
+                        <div>Belum ada transaksi masuk</div>
+                    </div>
+                `;
+            } else {
+                // Sort by date (newest first) as backup
+                const sortedMasuk = [...dashboardData.recentMasuk].sort((a, b) => {
+                    const dateA = new Date(a[0]);
+                    const dateB = new Date(b[0]);
+                    return dateB - dateA;
+                });
+                
+                const limitedMasuk = sortedMasuk.slice(0, 5);
+                limitedMasuk.forEach(item => {
+                    const [tanggal, invoice, supplier, kode, qty, harga, total] = item;
+                    const namaProduk = getProductName(kode);
+                    const transactionItem = `
+                        <div class="transaction-item">
+                            <div><strong>${namaProduk}</strong></div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                                ${kode} • ${qty} pack
+                            </div>
+                            <div class="amount-negative">${formatRupiah(total)}</div>
+                            <div class="transaction-meta">
+                                📅 ${formatDateTime(tanggal)} • 🏭 ${supplier} • 📄 ${invoice}
+                            </div>
+                        </div>
+                    `;
+                    masukContainer.innerHTML += transactionItem;
+                });
+                
+                if (dashboardData.recentMasuk.length > 5) {
+                    masukContainer.innerHTML += `
+                        <div style="text-align: center; padding: 0.5rem; color: var(--text-secondary); font-size: 0.7rem; opacity: 0.7;">
+                            📋 Menampilkan 5 transaksi terbaru dari ${dashboardData.recentMasuk.length} total
+                        </div>
+                    `;
+                }
+            }
+
+            const keluarContainer = document.getElementById('recent-keluar');
+            keluarContainer.innerHTML = '';
+            
+            if (dashboardData.recentKeluar.length === 0) {
+                keluarContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📤</div>
+                        <div>Belum ada transaksi keluar</div>
+                    </div>
+                `;
+            } else {
+                // Sort by date (newest first) as backup
+                const sortedKeluar = [...dashboardData.recentKeluar].sort((a, b) => {
+                    const dateA = new Date(a[0]);
+                    const dateB = new Date(b[0]);
+                    return dateB - dateA;
+                });
+                
+                const limitedKeluar = sortedKeluar.slice(0, 5);
+                limitedKeluar.forEach(item => {
+                    const [tanggal, noDO, cabang, kode, qty, harga, total] = item;
+                    const namaProduk = getProductName(kode);
+                    const transactionItem = `
+                        <div class="transaction-item">
+                            <div><strong>${namaProduk}</strong></div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                                ${kode} • ${qty} pack
+                            </div>
+                            <div class="amount-positive">${formatRupiah(total)}</div>
+                            <div class="transaction-meta">
+                                📅 ${formatDateTime(tanggal)} • 🏪 ${cabang} • 📋 ${noDO}
+                            </div>
+                        </div>
+                    `;
+                    keluarContainer.innerHTML += transactionItem;
+                });
+                
+                if (dashboardData.recentKeluar.length > 5) {
+                    keluarContainer.innerHTML += `
+                        <div style="text-align: center; padding: 0.5rem; color: var(--text-secondary); font-size: 0.7rem; opacity: 0.7;">
+                            📋 Menampilkan 5 transaksi terbaru dari ${dashboardData.recentKeluar.length} total
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function renderKeuanganTable() {
+            const tbody = document.getElementById('keuangan-tbody');
+            const financialCards = document.getElementById('financial-cards');
+            
+            tbody.innerHTML = '';
+            financialCards.innerHTML = '';
+            
+            if (dashboardData.keuangan.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <div class="empty-state-icon">💰</div>
+                            <div>Belum ada data keuangan</div>
+                        </td>
+                    </tr>
+                `;
+                financialCards.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💰</div>
+                        <div>Belum ada data keuangan</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const recentKeuangan = dashboardData.keuangan.slice(-8).reverse();
+            recentKeuangan.forEach(item => {
+                const [tanggal, keterangan, tipe, jumlah, saldo, ref] = item;
+                const enrichedKeterangan = enrichKeterangan(keterangan);
+                
+                const amountClass = tipe === 'Masuk' ? 'amount-positive' : 'amount-negative';
+                const amountPrefix = tipe === 'Masuk' ? '+' : '-';
+                
+                const row = `
+                    <tr>
+                        <td>${formatDateTime(tanggal)}</td>
+                        <td>${enrichedKeterangan}</td>
+                        <td><span class="status-badge ${tipe === 'Masuk' ? 'status-high' : 'status-low'}">${tipe}</span></td>
+                        <td class="${amountClass}">${amountPrefix}${formatRupiah(jumlah)}</td>
+                        <td><strong>${formatRupiah(saldo)}</strong></td>
+                        <td>${ref || '-'}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+
+                const financialCard = `
+                    <div class="financial-card">
+                        <div class="financial-card-header">
+                            <div class="financial-card-date">${formatDateTime(tanggal)}</div>
+                            <div class="financial-card-amount ${amountClass}">${amountPrefix}${formatRupiah(jumlah)}</div>
+                        </div>
+                        <div class="financial-card-details">
+                            <div class="financial-detail">
+                                <span class="financial-detail-label">Keterangan:</span>
+                                <span class="financial-detail-value">${enrichedKeterangan}</span>
+                            </div>
+                            <div class="financial-detail">
+                                <span class="financial-detail-label">Tipe:</span>
+                                <span class="status-badge ${tipe === 'Masuk' ? 'status-high' : 'status-low'}">${tipe}</span>
+                            </div>
+                            <div class="financial-detail">
+                                <span class="financial-detail-label">Saldo:</span>
+                                <span class="financial-detail-value"><strong>${formatRupiah(saldo)}</strong></span>
+                            </div>
+                            <div class="financial-detail">
+                                <span class="financial-detail-label">Ref:</span>
+                                <span class="financial-detail-value">${ref || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                financialCards.innerHTML += financialCard;
+            });
+            
+            if (dashboardData.keuangan.length > 8) {
+                const infoRow = `
+                    <tr style="opacity: 0.7;">
+                        <td colspan="6" style="text-align: center; font-style: italic; color: var(--text-secondary); font-size: 0.8rem;">
+                            📋 Menampilkan 8 transaksi terbaru dari ${dashboardData.keuangan.length} total
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += infoRow;
+
+                const infoCard = `
+                    <div style="text-align: center; padding: 0.5rem; color: var(--text-secondary); font-size: 0.7rem; opacity: 0.7;">
+                        📋 Menampilkan 8 transaksi terbaru dari ${dashboardData.keuangan.length} total
+                    </div>
+                `;
+                financialCards.innerHTML += infoCard;
+            }
+        }
+
+        async function loadPriceAnalysis() {
+            const container = document.getElementById('price-analysis-container');
+            container.innerHTML = '<p style="text-align: center; padding: 1rem;">🔄 Loading price analysis...</p>';
+            
+            try {
+                const result = await makeJSONPRequest('getAverageCosts');
+                
+                if (result && result.success) {
+                    if (Object.keys(result.data).length > 0) {
+                        priceAnalysisData = result.data;
+                        preparePriceData();
+                        renderPriceAnalysis();
+                    } else {
+                        container.innerHTML = `
+                            <p style="text-align: center; color: var(--text-secondary); padding: 1rem;">
+                                📋 Belum ada data pembelian untuk analisa harga.<br>
+                                <small>Data akan muncul setelah ada transaksi barang masuk.</small>
+                            </p>
+                        `;
+                    }
+                } else {
+                    container.innerHTML = `
+                        <p style="text-align: center; color: var(--danger-color); padding: 1rem;">
+                            Error loading price analysis: ${result?.message || 'Unknown error'}
+                        </p>
+                    `;
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <p style="text-align: center; color: var(--danger-color); padding: 1rem;">
+                        Error loading price analysis: ${error.message}
+                    </p>
+                `;
+                console.error('Price analysis error:', error);
+            }
+        }
+
+        function preparePriceData() {
+            if (!priceAnalysisData) {
+                filteredPriceData = [];
+                return;
+            }
+
+            // Convert object to array for easier filtering and sorting
+            let dataArray = Object.keys(priceAnalysisData).map(kode => {
+                return {
+                    kode: kode,
+                    nama: getProductName(kode),
+                    ...priceAnalysisData[kode]
+                };
+            });
+
+            // Apply search filter
+            if (priceSearchTerm) {
+                dataArray = dataArray.filter(item => {
+                    const kode = item.kode.toLowerCase();
+                    const nama = item.nama.toLowerCase();
+                    return kode.includes(priceSearchTerm) || nama.includes(priceSearchTerm);
+                });
+            }
+
+            // Apply sorting
+            switch(currentPriceSort) {
+                case 'code-asc':
+                    dataArray.sort((a, b) => a.kode.localeCompare(b.kode));
+                    break;
+                case 'code-desc':
+                    dataArray.sort((a, b) => b.kode.localeCompare(a.kode));
+                    break;
+                case 'avg-asc':
+                    dataArray.sort((a, b) => a.avgCost - b.avgCost);
+                    break;
+                case 'avg-desc':
+                    dataArray.sort((a, b) => b.avgCost - a.avgCost);
+                    break;
+                case 'last-asc':
+                    dataArray.sort((a, b) => a.lastPrice - b.lastPrice);
+                    break;
+                case 'last-desc':
+                    dataArray.sort((a, b) => b.lastPrice - a.lastPrice);
+                    break;
+            }
+
+            filteredPriceData = dataArray;
+            console.log(`Price data filtered: ${filteredPriceData.length} products, Sort: ${currentPriceSort}, Search: "${priceSearchTerm}"`);
+        }
+
+        function filterPriceAnalysis() {
+            const searchInput = document.getElementById('price-search-input');
+            const clearBtn = document.getElementById('clear-price-search-btn');
+            
+            priceSearchTerm = searchInput.value.toLowerCase().trim();
+            clearBtn.disabled = priceSearchTerm === '';
+            
+            preparePriceData();
+            renderPriceAnalysis();
+        }
+
+        function changePriceSort() {
+            currentPriceSort = document.getElementById('price-sort-select').value;
+            preparePriceData();
+            renderPriceAnalysis();
+        }
+
+        function clearPriceSearch() {
+            const searchInput = document.getElementById('price-search-input');
+            const clearBtn = document.getElementById('clear-price-search-btn');
+            
+            searchInput.value = '';
+            priceSearchTerm = '';
+            clearBtn.disabled = true;
+            
+            preparePriceData();
+            renderPriceAnalysis();
+        }
+
+        function renderPriceAnalysis() {
+            const container = document.getElementById('price-analysis-container');
+            
+            if (filteredPriceData.length === 0) {
+                const emptyMessage = priceSearchTerm 
+                    ? `Tidak ada produk yang cocok dengan "${priceSearchTerm}"`
+                    : 'Belum ada data analisa harga';
+                const emptyIcon = priceSearchTerm ? '🔍' : '📊';
+                
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">${emptyIcon}</div>
+                        <div>${emptyMessage}</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let tableHTML = `
+                <div class="table-container price-analysis-table">
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>Kode</th>
+                                <th>Nama Produk</th>
+                                <th>Harga Rata-rata</th>
+                                <th>Harga Terakhir</th>
+                                <th>Total Qty</th>
+                                <th>Transaksi</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            let cardsHTML = '';
+            
+            filteredPriceData.forEach(item => {
+                const kodeProduk = item.kode;
+                const namaProduk = item.nama;
+                
+                let trendClass = 'status-high';
+                let trendText = 'Stabil';
+                let trendIcon = '📊';
+                
+                if (item.lastPrice > item.avgCost * 1.1) {
+                    trendClass = 'status-low';
+                    trendText = 'Naik';
+                    trendIcon = '📈';
+                } else if (item.lastPrice < item.avgCost * 0.9) {
+                    trendClass = 'status-high';
+                    trendText = 'Turun';
+                    trendIcon = '📉';
+                }
+                
+                // Table row
+                tableHTML += `
+                    <tr>
+                        <td><strong>${kodeProduk}</strong></td>
+                        <td>${namaProduk}</td>
+                        <td><strong>${formatRupiah(item.avgCost)}</strong></td>
+                        <td>${formatRupiah(item.lastPrice)}</td>
+                        <td>${item.totalQty.toLocaleString('id-ID')}</td>
+                        <td>${item.priceCount}</td>
+                        <td><span class="status-badge ${trendClass}">${trendIcon} ${trendText}</span></td>
+                    </tr>
+                `;
+                
+                // Mobile card
+                cardsHTML += `
+                    <div class="price-card">
+                        <div class="price-card-header">
+                            <div>
+                                <div class="price-card-title">${namaProduk}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace; margin-top: 0.1rem;">${kodeProduk}</div>
+                            </div>
+                            <span class="status-badge ${trendClass} price-status-badge" data-icon="${trendIcon}" data-text="${trendText}">
+                                <span class="status-icon">${trendIcon}</span>
+                                <span class="status-text">${trendText}</span>
+                            </span>
+                        </div>
+                        
+                        <div class="price-card-main">
+                            <div class="price-card-item">
+                                <div class="price-card-label">💰 Rata-rata</div>
+                                <div class="price-card-value">${formatRupiah(item.avgCost)}</div>
+                            </div>
+                            <div class="price-card-item">
+                                <div class="price-card-label">🏷️ Terakhir</div>
+                                <div class="price-card-value">${formatRupiah(item.lastPrice)}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="price-card-details">
+                            <div class="price-detail">
+                                <div class="price-detail-label">Total Qty</div>
+                                <div class="price-detail-value">${item.totalQty.toLocaleString('id-ID')}</div>
+                            </div>
+                            <div class="price-detail">
+                                <div class="price-detail-label">Transaksi</div>
+                                <div class="price-detail-value">${item.priceCount}x</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            tableHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            const infoHTML = `
+                <div style="margin-top: 1rem; padding: 0.8rem; background: var(--bg-secondary); border-radius: 6px; font-size: 0.85rem;" class="price-analysis-info">
+                    <strong>💡 Keterangan:</strong><br>
+                    • <strong>Harga Rata-rata:</strong> Weighted average dari semua pembelian<br>
+                    • <strong>📈 Naik:</strong> Harga terakhir > +10% dari rata-rata<br>
+                    • <strong>📉 Turun:</strong> Harga terakhir < -10% dari rata-rata<br>
+                    • <strong>📊 Stabil:</strong> Harga terakhir ±10% dari rata-rata
+                </div>
+            `;
+            
+            container.innerHTML = `
+                ${tableHTML}
+                <div class="price-analysis-cards">
+                    ${cardsHTML}
+                </div>
+                ${infoHTML}
+            `;
+        }
+
+        function formatRupiah(amount) {
+            return 'Rp ' + (amount || 0).toLocaleString('id-ID');
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('last-update-time').textContent = 
+                `Last update: ${formatDateTime(now)}`;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.getElementById('dashboard-content').style.display = show ? 'none' : 'block';
+        }
+
+        function showError(message) {
+            const container = document.getElementById('error-container');
+            container.innerHTML = `<div class="error-message">${message}</div>`;
+            showLoading(false);
+        }
+
+        function clearError() {
+            document.getElementById('error-container').innerHTML = '';
+        }
+
+        function refreshData() {
+            const btn = event.target;
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Loading...';
+            
+            loadMasterData().then(() => {
+                return loadDashboardData();
+            }).finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            });
+        }
+
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            
+            refreshInterval = setInterval(() => {
+                if (document.visibilityState === 'visible') {
+                    loadMasterData().then(() => {
+                        loadDashboardData();
+                    });
+                }
+            }, CONFIG.REFRESH_INTERVAL);
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            
+            if (body.dataset.theme === 'light') {
+                body.dataset.theme = 'dark';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.dataset.theme = 'light';
+                localStorage.setItem('theme', 'light');
+            }
+            
+            updateThemeButton();
+        }
+
+        function updateThemeButton() {
+            const themeBtn = document.querySelector('.btn');
+            const isDark = document.body.dataset.theme === 'dark';
+            themeBtn.innerHTML = isDark ? '☀️ Light' : '🌙 Dark';
+        }
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.body.dataset.theme = savedTheme;
+            updateThemeButton();
+        }
+
+        function showFullReport(type) {
+            if (!dashboardData) {
+                showError('Data belum dimuat. Tunggu sebentar...');
+                return;
+            }
+
+            currentModalType = type;
+            const modal = document.getElementById('fullReportModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalTableHead = document.getElementById('modalTableHead');
+            
+            document.getElementById('searchInput').value = '';
+            
+            switch(type) {
+                case 'stok':
+                    modalTitle.textContent = '📦 Laporan Stok Lengkap (Aktif)';
+                    currentModalData = filteredStockData;
+                    modalTableHead.innerHTML = `
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama Produk</th>
+                            <th>Total Masuk</th>
+                            <th>Total Keluar</th>
+                            <th>Sisa Stok</th>
+                            <th>Min Stok</th>
+                            <th>Status</th>
+                            <th>Last Update</th>
+                        </tr>
+                    `;
+                    renderStokModal(currentModalData);
+                    break;
+                    
+                case 'masuk':
+                    modalTitle.textContent = '📥 Laporan Barang Masuk Lengkap';
+                    loadFullMasukData();
+                    return;
+                    
+                case 'keluar':
+                    modalTitle.textContent = '📤 Laporan Barang Keluar Lengkap';
+                    loadFullKeluarData();
+                    return;
+                    
+                case 'keuangan':
+                    modalTitle.textContent = '💰 Laporan Keuangan Lengkap';
+                    currentModalData = dashboardData.keuangan;
+                    modalTableHead.innerHTML = `
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Keterangan</th>
+                            <th>Tipe</th>
+                            <th>Jumlah</th>
+                            <th>Saldo</th>
+                            <th>Referensi</th>
+                        </tr>
+                    `;
+                    renderKeuanganModal(currentModalData);
+                    break;
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function renderStokModal(data) {
+            const tbody = document.getElementById('modalTableBody');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            📦 Belum ada data stok aktif
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            data.forEach(item => {
+                const [kode, nama, masuk, keluar, sisa, minStok, update] = item;
+                
+                const sisaNum = parseInt(sisa) || 0;
+                const minStokNum = parseInt(minStok) || 10;
+                
+                let statusClass = 'status-high';
+                let statusText = 'Aman';
+                
+                if (sisaNum <= 0) {
+                    statusClass = 'status-empty';
+                    statusText = '🚨 Habis';
+                } else if (sisaNum < minStokNum) {
+                    statusClass = 'status-low';
+                    statusText = 'Kritis';
+                } else if (sisaNum < (minStokNum * 1.5)) {
+                    statusClass = 'status-medium';
+                    statusText = 'Rendah';
+                }
+                
+                const row = `
+                    <tr>
+                        <td><strong>${kode}</strong></td>
+                        <td>${nama}</td>
+                        <td>${masuk || 0}</td>
+                        <td>${keluar || 0}</td>
+                        <td><strong>${sisaNum}</strong></td>
+                        <td>${minStokNum}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${formatDateTime(update)}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        async function loadFullMasukData() {
+            const modal = document.getElementById('fullReportModal');
+            const modalTableHead = document.getElementById('modalTableHead');
+            const modalTableBody = document.getElementById('modalTableBody');
+            
+            modal.style.display = 'block';
+            modalTableHead.innerHTML = `
+                <tr>
+                    <th>Tanggal</th>
+                    <th>No. Invoice</th>
+                    <th>Supplier</th>
+                    <th>Kode Produk</th>
+                    <th>Qty</th>
+                    <th>Harga/Pack</th>
+                    <th>Total</th>
+                    <th>User</th>
+                </tr>
+            `;
+            modalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 3rem;">
+                        <div class="spinner"></div>
+                        <div style="margin-top: 1rem;">⏳ Memuat data transaksi masuk...</div>
+                    </td>
+                </tr>
+            `;
+            
+            try {
+                const result = await makeJSONPRequest('getFullMasukData');
+                if (result && result.success) {
+                    // Sort by date (newest first)
+                    currentModalData = result.data.sort((a, b) => {
+                        const dateA = new Date(a[0]);
+                        const dateB = new Date(b[0]);
+                        return dateB - dateA;
+                    });
+                    renderTransaksiModal(currentModalData, 'masuk');
+                } else {
+                    modalTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 2rem; color: var(--danger-color);">
+                                Gagal memuat data: ${result?.message || 'Unknown error'}
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                modalTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--danger-color);">
+                            Error: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        async function loadFullKeluarData() {
+            const modal = document.getElementById('fullReportModal');
+            const modalTableHead = document.getElementById('modalTableHead');
+            const modalTableBody = document.getElementById('modalTableBody');
+            
+            modal.style.display = 'block';
+            modalTableHead.innerHTML = `
+                <tr>
+                    <th>Tanggal</th>
+                    <th>No. DO</th>
+                    <th>Cabang</th>
+                    <th>Kode Produk</th>
+                    <th>Qty</th>
+                    <th>Harga/Pack</th>
+                    <th>Total</th>
+                    <th>User</th>
+                </tr>
+            `;
+            modalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 3rem;">
+                        <div class="spinner"></div>
+                        <div style="margin-top: 1rem;">⏳ Memuat data transaksi keluar...</div>
+                    </td>
+                </tr>
+            `;
+            
+            try {
+                const result = await makeJSONPRequest('getFullKeluarData');
+                if (result && result.success) {
+                    // Sort by date (newest first)
+                    currentModalData = result.data.sort((a, b) => {
+                        const dateA = new Date(a[0]);
+                        const dateB = new Date(b[0]);
+                        return dateB - dateA;
+                    });
+                    renderTransaksiModal(currentModalData, 'keluar');
+                } else {
+                    modalTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 2rem; color: var(--danger-color);">
+                                Gagal memuat data: ${result?.message || 'Unknown error'}
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                modalTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--danger-color);">
+                            Error: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderTransaksiModal(data, type) {
+            const tbody = document.getElementById('modalTableBody');
+            tbody.innerHTML = '';
+            
+            data.forEach(item => {
+                if (type === 'masuk') {
+                    const [tanggal, invoice, supplier, kode, qty, harga, total, user] = item;
+                    const namaProduk = getProductName(kode);
+                    const row = `
+                        <tr>
+                            <td>${formatDateTime(tanggal)}</td>
+                            <td>${invoice}</td>
+                            <td>${supplier}</td>
+                            <td>
+                                <strong>${namaProduk}</strong><br>
+                                <small style="color: var(--text-secondary);">${kode}</small>
+                            </td>
+                            <td>${qty}</td>
+                            <td>${formatRupiah(harga)}</td>
+                            <td><strong>${formatRupiah(total)}</strong></td>
+                            <td>${user}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                } else {
+                    const [tanggal, noDO, cabang, kode, qty, harga, total, user] = item;
+                    const namaProduk = getProductName(kode);
+                    const row = `
+                        <tr>
+                            <td>${formatDateTime(tanggal)}</td>
+                            <td>${noDO}</td>
+                            <td>${cabang}</td>
+                            <td>
+                                <strong>${namaProduk}</strong><br>
+                                <small style="color: var(--text-secondary);">${kode}</small>
+                            </td>
+                            <td>${qty}</td>
+                            <td>${formatRupiah(harga)}</td>
+                            <td><strong>${formatRupiah(total)}</strong></td>
+                            <td>${user}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                }
+            });
+        }
+
+        function renderKeuanganModal(data) {
+            const tbody = document.getElementById('modalTableBody');
+            tbody.innerHTML = '';
+            
+            data.slice().reverse().forEach(item => {
+                const [tanggal, keterangan, tipe, jumlah, saldo, ref] = item;
+                const enrichedKeterangan = enrichKeterangan(keterangan);
+                
+                const amountClass = tipe === 'Masuk' ? 'amount-positive' : 'amount-negative';
+                const amountPrefix = tipe === 'Masuk' ? '+' : '-';
+                
+                const row = `
+                    <tr>
+                        <td>${formatDateTime(tanggal)}</td>
+                        <td>${enrichedKeterangan}</td>
+                        <td><span class="status-badge ${tipe === 'Masuk' ? 'status-high' : 'status-low'}">${tipe}</span></td>
+                        <td class="${amountClass}">${amountPrefix}${formatRupiah(jumlah)}</td>
+                        <td><strong>${formatRupiah(saldo)}</strong></td>
+                        <td>${ref || '-'}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function filterModalData() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const tbody = document.getElementById('modalTableBody');
+            const rows = tbody.getElementsByTagName('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const text = row.textContent.toLowerCase();
+                
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('fullReportModal').style.display = 'none';
+            currentModalData = [];
+            currentModalType = '';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('fullReportModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
