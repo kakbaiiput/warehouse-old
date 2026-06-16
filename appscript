@@ -163,22 +163,6 @@ function createCORSResponse(data) {
 
 // ========== MENU SYSTEM (OTOMATIS MUNCUL DI GOOGLE SHEETS) ==========
 
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('🛠️ Data Management')
-    .addItem('🆔 Setup Product_ID System', 'setupProductIDSystem')
-    .addItem('🔄 Migrate Existing Data', 'migrateExistingData')
-    .addSeparator()
-    .addItem('↩️ Rollback Migration', 'rollbackMigration')
-    .addItem('🧹 Clean Orphan Codes', 'cleanOrphanedProductCodes')
-    .addItem('📊 Refresh Stok Real', 'updateStokRealOptimized')
-    .addSeparator()
-    .addItem('🔧 Fix Corrupted Data', 'fixCorruptedData')
-    .addItem('🔍 Find Missing Products', 'findMissingProducts')
-    .addItem('📋 Create Backup', 'createDataBackup')
-    .addToUi();
-}
-
 // ========== PRODUCT_ID SYSTEM FUNCTIONS ==========
 
 function setupProductIDSystem() {
@@ -2280,40 +2264,6 @@ function formatRupiah(amount) {
   return 'Rp ' + (amount || 0).toLocaleString('id-ID');
 }
 
-// UTILITY: Enhanced simpleFormat function
-function simpleFormat(sheetName, rowNumber) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(sheetName);
-    
-    if (!sheet || !rowNumber) return;
-    
-    if (sheetName === 'BARANG_MASUK') {
-      formatCurrency(sheet.getRange(rowNumber, 6, 1, 2)); // Harga dan Total
-    }
-    
-    if (sheetName === 'BARANG_KELUAR') {
-      formatCurrency(sheet.getRange(rowNumber, 6, 1, 2)); // Harga dan Total
-    }
-    
-    if (sheetName === 'KEUANGAN') {
-      formatCurrency(sheet.getRange(rowNumber, 4, 1, 2)); // Jumlah dan Saldo
-    }
-    
-  } catch (error) {
-    console.error('Simple format error for', sheetName, ':', error.toString());
-  }
-}
-
-function formatCurrency(range) {
-  try {
-    range.setNumberFormat('#,##0');
-  } catch (error) {
-    console.error('formatCurrency error:', error.toString());
-  }
-}
-
-
 // UPDATED: recalculateAllSaldos - start from zero
 function recalculateAllSaldos(keuanganSheet) {
   try {
@@ -2449,27 +2399,6 @@ function verifySaldoCalculation() {
   }
 }
 
-// ========== AUTO-SYNC KEUANGAN WITH TRANSACTIONS ==========
-
-// Trigger otomatis ketika ada edit di sheet
-function onEdit(e) {
-  try {
-    const sheet = e.source.getActiveSheet();
-    const sheetName = sheet.getName();
-    
-    // Jika edit di BARANG_MASUK atau BARANG_KELUAR
-    if (sheetName === 'BARANG_MASUK' || sheetName === 'BARANG_KELUAR') {
-      console.log(`Edit detected in ${sheetName}, triggering sync...`);
-      
-      // Rebuild keuangan after a short delay to allow multiple edits
-      Utilities.sleep(1000); // Wait 1 second
-      syncKeuanganWithTransactions();
-    }
-  } catch (error) {
-    console.error('onEdit trigger error:', error);
-  }
-}
-
 // Fungsi untuk sync KEUANGAN dengan BARANG_MASUK dan BARANG_KELUAR
 function syncKeuanganWithTransactions() {
   try {
@@ -2545,149 +2474,6 @@ function manualRebuildKeuangan() {
     return { success: false, message: error.toString() };
   }
 }
-
-// UPDATE: Improved rebuildKeuanganChronologically dengan better manual entry detection
-function rebuildKeuanganChronologically(ss) {
-  const keuanganSheet = ss.getSheetByName('KEUANGAN');
-  const masukSheet = ss.getSheetByName('BARANG_MASUK');
-  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
-  const produkSheet = ss.getSheetByName('MASTER_PRODUK');
-  
-  console.log('Starting keuangan rebuild...');
-  
-  // Backup existing keuangan data
-  const existingKeuanganData = keuanganSheet.getDataRange().getValues();
-  
-  // Cari entry manual (yang bukan dari transaksi barang)
-  const manualEntries = [];
-  existingKeuanganData.slice(2).forEach((row, index) => {
-    const keterangan = row[1] ? row[1].toString().toLowerCase() : '';
-    
-    // Manual entry = bukan "beli" dan bukan "jual"
-    if (!keterangan.includes('beli') && !keterangan.includes('jual')) {
-      manualEntries.push({
-        rowIndex: index + 3,
-        data: row,
-        date: new Date(row[0])
-      });
-    }
-  });
-  
-  console.log('Found manual entries:', manualEntries.length);
-  
-  // Clear keuangan (keep title and header)
-  if (keuanganSheet.getLastRow() > 2) {
-    keuanganSheet.getRange(3, 1, keuanganSheet.getLastRow() - 2, 6).clearContent();
-  }
-  
-  // Get product mapping untuk display name
-  const headers = produkSheet.getRange(2, 1, 1, produkSheet.getLastColumn()).getValues()[0];
-  const hasProductID = headers.includes('Product_ID');
-  const produkData = produkSheet.getDataRange().getValues().slice(3);
-  const productMapping = {};
-  
-  produkData.forEach(row => {
-    if (hasProductID && row[0] && row[1]) {
-      productMapping[row[0]] = row[1]; // Product_ID -> Kode
-      productMapping[row[1]] = row[1]; // Kode -> Kode
-    } else if (row[0]) {
-      productMapping[row[0]] = row[0]; // Kode -> Kode
-    }
-  });
-  
-  // Collect all transactions
-  const allTransactions = [];
-  
-  // Add manual entries back
-  manualEntries.forEach(entry => {
-    allTransactions.push({
-      date: entry.date,
-      keterangan: entry.data[1],
-      tipe: entry.data[2],
-      jumlah: entry.data[3],
-      refNo: entry.data[5],
-      type: 'manual'
-    });
-  });
-  
-  // Add barang masuk (as pengeluaran)
-  const masukData = masukSheet.getDataRange().getValues().slice(2);
-  masukData.forEach(row => {
-    if (row[0] && row[3] && row[6]) {
-      const displayCode = productMapping[row[3]] || row[3];
-      allTransactions.push({
-        date: new Date(row[0]),
-        keterangan: `Beli ${displayCode} dari ${row[2]}`,
-        tipe: 'Keluar',
-        jumlah: row[6],
-        refNo: row[1],
-        type: 'masuk'
-      });
-    }
-  });
-  
-  // Add barang keluar (as pemasukan)
-  const keluarData = keluarSheet.getDataRange().getValues().slice(2);
-  keluarData.forEach(row => {
-    if (row[0] && row[3] && row[6]) {
-      const displayCode = productMapping[row[3]] || row[3];
-      allTransactions.push({
-        date: new Date(row[0]),
-        keterangan: `Jual ${displayCode} ke ${row[2]}`,
-        tipe: 'Masuk',
-        jumlah: row[6],
-        refNo: row[1],
-        type: 'keluar'
-      });
-    }
-  });
-  
-  console.log('Total transactions:', allTransactions.length);
-  
-  // Sort by date
-  allTransactions.sort((a, b) => a.date - b.date);
-  
-  // Rebuild with running balance
-  let currentSaldo = 0;
-  let transactionsProcessed = 0;
-  
-  allTransactions.forEach(transaction => {
-    // Calculate balance
-    if (transaction.tipe === 'Masuk') {
-      currentSaldo += transaction.jumlah;
-    } else {
-      currentSaldo -= transaction.jumlah;
-    }
-    
-    // Create row
-    const keuanganRow = [
-      Utilities.formatDate(transaction.date, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'),
-      transaction.keterangan,
-      transaction.tipe,
-      transaction.jumlah,
-      currentSaldo,
-      transaction.refNo || '-'
-    ];
-    
-    keuanganSheet.appendRow(keuanganRow);
-    
-    // Format
-    const lastRow = keuanganSheet.getLastRow();
-    simpleFormat('KEUANGAN', lastRow);
-    
-    transactionsProcessed++;
-  });
-  
-  console.log('Keuangan rebuild completed');
-  
-  return {
-    transactionsProcessed: transactionsProcessed,
-    finalBalance: currentSaldo,
-    manualEntriesPreserved: manualEntries.length,
-    startingBalance: 0
-  };
-}
-
 
 function sortBarangMasukByDate() {
   try {
