@@ -1496,10 +1496,16 @@
             const requestId = generateRequestId(data, action);
             const btnId = formId.replace('form-', 'btn-');
             const btn = document.getElementById(btnId);
-            
+
             // Save as pending and update UI
             savePendingRequest(requestId, data);
             addToRecentSubmissions(data, action);
+
+            // Tag the payload with the same requestId on every retry, so the
+            // server can recognize a retried/duplicate request (e.g. when the
+            // first attempt was still running on Apps Script when the client
+            // gave up waiting and auto-retried) and avoid inserting it twice.
+            data = { ...data, requestId };
             
             btn.disabled = true;
             btn.classList.add('processing');

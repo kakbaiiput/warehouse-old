@@ -161,6 +161,46 @@ function createCORSResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ========== IDEMPOTENCY GUARD (prevent double-submit when GAS responds slowly) ==========
+// If the client sends the same data.requestId twice (e.g. the JSONP request
+// timed out client-side and auto-retried while the first run was still
+// executing on the server), the second call returns the cached result
+// instead of inserting a second row. LockService also serializes execution
+// so two near-simultaneous requests can't race on appendRow()/getLastSaldo().
+function withIdempotency(requestId, fn) {
+  if (!requestId) return fn();
+
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'req_' + requestId;
+
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    console.log('Duplicate request blocked (requestId already processed):', requestId);
+    return JSON.parse(cached);
+  }
+
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+  } catch (e) {
+    return { success: false, message: 'Server sedang memproses transaksi lain, coba beberapa saat lagi.' };
+  }
+
+  try {
+    const cachedAfterLock = cache.get(cacheKey);
+    if (cachedAfterLock) {
+      console.log('Duplicate request blocked after lock (requestId already processed):', requestId);
+      return JSON.parse(cachedAfterLock);
+    }
+
+    const result = fn();
+    cache.put(cacheKey, JSON.stringify(result), 600); // remember for 10 minutes
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ========== DB SYNC (push Google Sheet data to MySQL on rt.umami.my.id) ==========
 
 const DB_SYNC_URL = 'https://rt.umami.my.id/api/sync.php';
@@ -937,6 +977,7 @@ function getSmartTransactionDate(inputDate) {
 }
 
 function saveBarangMasukWithID(data) {
+  return withIdempotency(data.requestId, () => {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('BARANG_MASUK');
@@ -1022,9 +1063,11 @@ function saveBarangMasukWithID(data) {
   } catch (error) {
     return { success: false, message: 'Error: ' + error.toString() };
   }
+  });
 }
 
 function saveBarangKeluarWithID(data) {
+  return withIdempotency(data.requestId, () => {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('BARANG_KELUAR');
@@ -1106,13 +1149,15 @@ function saveBarangKeluarWithID(data) {
       success: true,
       message: `Barang keluar berhasil disimpan! Product: ${productCode}, Waktu: ${transactionDate}`
     };
-    
+
   } catch (error) {
     return { success: false, message: 'Error: ' + error.toString() };
   }
+  });
 }
 
 function saveKeuangan(data) {
+  return withIdempotency(data.requestId, () => {
   try {
     console.log('saveKeuangan called with data:', data);
     
@@ -1142,10 +1187,11 @@ function saveKeuangan(data) {
       success: true,
       message: `Keuangan saved! Waktu: ${transactionDate}`
     };
-    
+
   } catch (error) {
     return { success: false, message: 'Error: ' + error.toString() };
   }
+  });
 }
 
 function getLastSaldo() {
