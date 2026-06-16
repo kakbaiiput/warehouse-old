@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Inventory - Dimsum Warehouse (Product_ID System)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --accent-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --info-color: #17a2b8;
+            --warning-color: #ffc107;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #2d3748;
+            --bg-secondary: #1a202c;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --border-color: #4a5568;
+            --accent-color: #4299e1;
+            --success-color: #68d391;
+            --danger-color: #f56565;
+            --info-color: #63b3ed;
+            --warning-color: #fbd38d;
+            --shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            transition: all 0.3s ease;
+            font-size: 16px; /* Base font size untuk mobile */
+        }
+
+        *, *::before, *::after {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .btn, .tab {
+            transition: all 0.3s ease, background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .header {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            color: var(--accent-color);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .theme-switch {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            min-height: 44px; /* Touch target size */
+        }
+
+        .theme-switch:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+
+        .nav-btn {
+            background: var(--success-color);
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem 1.2rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            min-height: 44px; /* Touch target size */
+        }
+
+        .nav-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+
+        .connection-status {
+            padding: 0.6rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .status-disconnected {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .tabs {
+            display: flex;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 50px; /* Touch target size */
+        }
+
+        .tab.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: var(--bg-secondary);
+        }
+
+        .tab-content {
+            display: none;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-title {
+            margin-bottom: 1.5rem;
+            color: var(--accent-color);
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 0.6rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+
+        input, select {
+            padding: 0.9rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            min-height: 50px; /* Touch target size */
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 1.2rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            position: relative;
+            min-height: 56px; /* Touch target size */
+        }
+
+        .btn:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.processing {
+            background: var(--warning-color);
+            color: var(--text-primary);
+            cursor: wait;
+        }
+
+        .btn.processing::before {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            word-wrap: break-word;
+        }
+
+        .alert-success {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .alert-danger {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .alert-warning {
+            background: rgba(255, 193, 7, 0.1);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+
+        .alert-info {
+            background: rgba(23, 162, 184, 0.1);
+            color: var(--info-color);
+            border: 1px solid var(--info-color);
+        }
+
+        [data-theme="dark"] .alert-success {
+            background: rgba(104, 211, 145, 0.15);
+        }
+
+        [data-theme="dark"] .alert-danger {
+            background: rgba(245, 101, 101, 0.15);
+        }
+
+        [data-theme="dark"] .alert-warning {
+            background: rgba(251, 211, 141, 0.15);
+        }
+
+        [data-theme="dark"] .alert-info {
+            background: rgba(99, 179, 237, 0.15);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        .total-display {
+            background: var(--border-color);
+            font-weight: bold;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace; /* Monospace untuk angka */
+        }
+
+        .currency-input {
+            font-family: 'Courier New', monospace; /* Monospace untuk angka */
+        }
+
+        details {
+            color: var(--text-primary);
+        }
+
+        summary {
+            color: var(--accent-color);
+            background: var(--bg-secondary);
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            min-height: 44px; /* Touch target size */
+        }
+
+        summary:hover {
+            background: var(--border-color);
+        }
+
+        details[open] summary {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        small {
+            color: var(--text-secondary) !important;
+            font-size: 0.85rem;
+        }
+
+        input::placeholder, select::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        [data-theme="dark"] .spinner {
+            border-color: var(--border-color);
+            border-top-color: var(--accent-color);
+        }
+
+        [data-theme="dark"] input,
+        [data-theme="dark"] select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] select {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 1em;
+            padding-right: 2.5rem;
+        }
+
+        .price-info {
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .price-breakdown {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+
+        .stock-info {
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stock-available {
+            background: rgba(40, 167, 69, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+
+        .stock-low {
+            background: rgba(255, 193, 7, 0.1);
+            border-color: var(--warning-color);
+            color: var(--warning-color);
+        }
+
+        .stock-critical {
+            background: rgba(220, 53, 69, 0.1);
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .input-error {
+            border-color: var(--danger-color) !important;
+            background: rgba(220, 53, 69, 0.05);
+        }
+
+        .test-btn {
+            background: var(--info-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 44px; /* Touch target size */
+        }
+
+        .test-btn:hover {
+            opacity: 0.8;
+        }
+
+        .duplicate-warning {
+            background: rgba(255, 193, 7, 0.15);
+            border: 2px solid var(--warning-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .duplicate-warning.show {
+            display: block;
+        }
+
+        .confirmation-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .confirmation-buttons button {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 44px; /* Touch target size */
+        }
+
+        .btn-confirm {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-cancel {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .setup-banner {
+            background: linear-gradient(135deg, var(--accent-color), var(--info-color));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .setup-banner h3 {
+            margin-bottom: 0.5rem;
+        }
+
+        .setup-btn {
+            background: white;
+            color: var(--accent-color);
+            border: none;
+            padding: 0.9rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+            min-height: 44px; /* Touch target size */
+        }
+
+        .setup-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .info-panel {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--info-color);
+        }
+
+        .info-panel p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+            body {
+                overflow-x: hidden;
+            }
+            
+            .container {
+                padding: 0.5rem;
+                max-width: 100vw;
+                overflow-x: hidden;
+            }
+            
+            .header {
+                text-align: center;
+                padding: 0.8rem;
+                flex-direction: column;
+                align-items: stretch;
+                margin-bottom: 1rem;
+                box-sizing: border-box;
+            }
+            
+            .header h1 {
+                font-size: 1.3rem;
+                text-align: center;
+                justify-content: center;
+                word-wrap: break-word;
+                hyphens: auto;
+            }
+            
+            .subtitle {
+                font-size: 0.8rem;
+                word-wrap: break-word;
+                hyphens: auto;
+            }
+            
+            .controls {
+                justify-content: center;
+                margin-top: 1rem;
+                width: 100%;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .theme-switch, .nav-btn {
+                flex: 1;
+                min-width: 100px;
+                max-width: none;
+                text-align: center;
+                justify-content: center;
+                font-size: 0.8rem;
+                padding: 0.6rem 0.8rem;
+            }
+            
+            .connection-status {
+                width: 100%;
+                text-align: center;
+                margin-bottom: 0.5rem;
+                font-size: 0.75rem;
+                padding: 0.4rem 0.8rem;
+                word-wrap: break-word;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 0.8rem;
+            }
+            
+            .form-group {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            input, select {
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+                font-size: 16px; /* Prevent zoom on iOS */
+                padding: 0.7rem;
+                word-wrap: break-word;
+            }
+            
+            .tabs {
+                flex-direction: column;
+                margin-bottom: 1rem;
+            }
+            
+            .tab {
+                border-radius: 0;
+                padding: 1rem;
+                font-size: 0.85rem;
+                text-align: center;
+                word-wrap: break-word;
+            }
+            
+            .tab:first-child {
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+            }
+            
+            .tab:last-child {
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+            }
+
+            .tab-content {
+                padding: 0.8rem;
+                box-sizing: border-box;
+                width: 100%;
+                overflow-x: hidden;
+            }
+
+            .form-title {
+                font-size: 1.1rem;
+                text-align: center;
+                flex-direction: column;
+                word-wrap: break-word;
+                margin-bottom: 1rem;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 100%;
+                font-size: 0.95rem;
+                padding: 1rem;
+                box-sizing: border-box;
+                word-wrap: break-word;
+            }
+            
+            .price-breakdown {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.2rem;
+                width: 100%;
+                word-wrap: break-word;
+            }
+            
+            .price-breakdown span {
+                width: 100%;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            
+            .confirmation-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .confirmation-buttons button {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .setup-banner {
+                padding: 0.8rem;
+                word-wrap: break-word;
+            }
+            
+            .alert {
+                font-size: 0.85rem;
+                padding: 0.7rem;
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: left;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+            }
+            
+            .info-panel {
+                padding: 0.8rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            
+            .price-info, .stock-info {
+                padding: 0.6rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+            }
+            
+            small {
+                font-size: 0.75rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            
+            .duplicate-warning {
+                padding: 0.8rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+            }
+            
+            .test-btn {
+                padding: 0.5rem 0.8rem;
+                font-size: 0.8rem;
+                word-wrap: break-word;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0.3rem;
+            }
+            
+            .header {
+                padding: 0.6rem;
+            }
+            
+            .header h1 {
+                font-size: 1.1rem;
+                line-height: 1.2;
+            }
+            
+            .subtitle {
+                font-size: 0.75rem;
+                line-height: 1.3;
+            }
+            
+            .tab-content {
+                padding: 0.6rem;
+            }
+            
+            .form-title {
+                font-size: 1rem;
+            }
+            
+            .controls {
+                gap: 0.3rem;
+            }
+            
+            .theme-switch, .nav-btn {
+                font-size: 0.75rem;
+                padding: 0.5rem 0.6rem;
+                min-width: 80px;
+            }
+            
+            input, select {
+                padding: 0.6rem;
+                font-size: 16px;
+            }
+            
+            .btn {
+                padding: 0.9rem;
+                font-size: 0.9rem;
+            }
+            
+            .form-grid {
+                gap: 0.6rem;
+            }
+            
+            label {
+                font-size: 0.85rem;
+                margin-bottom: 0.4rem;
+            }
+            
+            .alert {
+                padding: 0.6rem;
+                font-size: 0.8rem;
+            }
+            
+            .info-panel, .price-info, .stock-info {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Landscape mobile orientation */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .header {
+                flex-direction: row;
+                text-align: left;
+            }
+            
+            .controls {
+                margin-top: 0;
+                width: auto;
+            }
+            
+            .tabs {
+                flex-direction: row;
+            }
+            
+            .tab {
+                padding: 0.8rem;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📦 Input Inventory (Product_ID System)</h1>
+                <p class="subtitle">Sistem Manajemen Gudang Dimsum - Dengan ID Unik Anti Duplicate</p>
+            </div>
+            <div class="controls">
+                <div class="connection-status" id="connection-status">
+                    🔌 Checking...
+                </div>
+                <button class="theme-switch" onclick="toggleTheme()">🌙 Dark</button>
+                <a href="dashboard.html" class="nav-btn">📊 Dashboard</a>
+            </div>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <!-- Setup Banner (only show if Product_ID not detected) -->
+        <div id="setup-banner" class="setup-banner" style="display: none;">
+            <h3>🆔 Setup Product_ID System</h3>
+            <p>Sistem belum menggunakan Product_ID. Setup sekarang untuk mencegah masalah sinkronisasi data di masa depan.</p>
+            <button class="setup-btn" onclick="setupProductIDs()">🚀 Setup Product_ID System</button>
+        </div>
+
+        <!-- Duplicate Warning Modal -->
+        <div id="duplicate-warning" class="duplicate-warning">
+            <h4 style="color: var(--warning-color); margin-bottom: 0.5rem;">⚠️ Possible Duplicate Submission</h4>
+            <p style="margin-bottom: 0.5rem;">Data yang sama terdeteksi dalam 2 menit terakhir. Apakah Anda yakin ingin submit ulang?</p>
+            <div class="confirmation-buttons">
+                <button class="btn-cancel" onclick="cancelDuplicateSubmission()">❌ Cancel</button>
+                <button class="btn-confirm" onclick="forceDuplicateSubmission()">✅ Submit Anyway</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('barang-masuk')">📥 Barang Masuk</button>
+            <button class="tab" onclick="showTab('barang-keluar')">📤 Barang Keluar</button>
+            <button class="tab" onclick="showTab('keuangan')">💰 Keuangan</button>
+        </div>
+
+        <!-- Barang Masuk Form -->
+        <div id="barang-masuk" class="tab-content active">
+            <h3 class="form-title">📥 Form Barang Masuk</h3>
+            <div class="info-panel">
+                <p>
+                    🛡️ <strong>Product_ID System:</strong> Setiap produk memiliki ID unik yang tidak berubah meski kode diubah. Anti-duplicate protection otomatis aktif.
+                </p>
+            </div>
+            <form id="form-masuk">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tanggal-masuk">📅 Tanggal Transaksi</label>
+                        <input type="date" id="tanggal-masuk" required autocomplete="off">
+                        <small>
+                            💡 Pilih tanggal sesuai kapan pembelian sebenarnya terjadi
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="no-invoice">📄 No. Invoice</label>
+                        <input type="text" id="no-invoice" required placeholder="INV001" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="supplier">🏭 Supplier</label>
+                        <input type="text" id="supplier" required placeholder="Pabrik Dimsum A" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="produk-masuk">🥟 Produk</label>
+                        <select id="produk-masuk" required>
+                            <option value="">Pilih Produk...</option>
+                        </select>
+                        <small id="product-info-masuk">
+                            Pilih produk untuk melihat info
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="qty-masuk">📊 Quantity (Pack)</label>
+                        <input type="number" id="qty-masuk" required min="1" placeholder="100" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="harga-masuk">💰 Harga Aktual per Pack</label>
+                        <input type="text" id="harga-masuk" required placeholder="Masukkan harga beli aktual" autocomplete="off" class="currency-input">
+                        <small>
+                            💡 Harga beli bisa berbeda dari harga referensi
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>💵 Total</label>
+                        <input type="text" id="total-masuk" readonly class="total-display">
+                    </div>
+                </div>
+                <button type="submit" class="btn" id="btn-masuk">💾 Simpan Barang Masuk</button>
+            </form>
+        </div>
+
+        <!-- Barang Keluar Form -->
+        <div id="barang-keluar" class="tab-content">
+            <h3 class="form-title">📤 Form Barang Keluar</h3>
+            <div class="info-panel" style="border-left-color: var(--warning-color);">
+                <p>
+                    🚨 <strong>Kontrol Stok & Product_ID:</strong> Sistem otomatis cek stok menggunakan ID unik untuk akurasi maksimal.
+                </p>
+                <div style="margin-top: 0.8rem;">
+                    <button type="button" onclick="refreshStockData()" class="test-btn">
+                        🔄 Refresh Stock Data
+                    </button>
+                </div>
+            </div>
+            <form id="form-keluar">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tanggal-keluar">📅 Tanggal Transaksi</label>
+                        <input type="date" id="tanggal-keluar" required autocomplete="off">
+                        <small>
+                            💡 Pilih tanggal sesuai kapan distribusi sebenarnya terjadi
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="no-do">📋 No. DO</label>
+                        <input type="text" id="no-do" required placeholder="DO001" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="cabang">🏪 Cabang Tujuan</label>
+                        <select id="cabang" required>
+                            <option value="">Pilih Cabang...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="produk-keluar">🥟 Produk</label>
+                        <select id="produk-keluar" required>
+                            <option value="">Pilih Produk...</option>
+                        </select>
+                        <small id="product-info-keluar">
+                            Pilih produk untuk melihat info
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="qty-keluar">📊 Quantity (Pack)</label>
+                        <input type="number" id="qty-keluar" required min="1" placeholder="Pilih produk dulu..." autocomplete="off">
+                        <div id="stock-info" class="stock-info" style="display: none;">
+                            <div class="price-breakdown">
+                                <span>📦 Stok Tersedia:</span>
+                                <span id="available-stock">-</span>
+                            </div>
+                            <div class="price-breakdown">
+                                <span>⚠️ Minimum Stok:</span>
+                                <span id="minimum-stock">-</span>
+                            </div>
+                            <small id="stock-status">Pilih produk untuk melihat stok</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="harga-keluar">💰 Harga per Pack</label>
+                        <input type="text" id="harga-keluar" required placeholder="Pilih produk untuk mendapat harga..." autocomplete="off" class="currency-input">
+                        <div id="harga-keluar-info" class="price-info" style="display: none;">
+                            <div class="price-breakdown">
+                                <span>📊 Harga Rata-rata:</span>
+                                <span id="avg-price">-</span>
+                            </div>
+                            <div class="price-breakdown">
+                                <span>📋 Harga Referensi:</span>
+                                <span id="ref-price">-</span>
+                            </div>
+                            <div class="price-breakdown">
+                                <span>💰 Transaksi Terakhir:</span>
+                                <span id="last-price">-</span>
+                            </div>
+                            <small>💡 Sistem menggunakan harga rata-rata otomatis</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>💵 Total</label>
+                        <input type="text" id="total-keluar" readonly class="total-display">
+                    </div>
+                </div>
+                <button type="submit" class="btn" id="btn-keluar">💾 Simpan Barang Keluar</button>
+            </form>
+        </div>
+
+        <!-- Keuangan Form -->
+        <div id="keuangan" class="tab-content">
+            <h3 class="form-title">💰 Input Manual Keuangan</h3>
+            <div class="info-panel" style="border-left-color: var(--success-color);">
+                <p>
+                    💰 <strong>Transaksi Keuangan Manual:</strong> Input modal tambahan, biaya operasional, atau transaksi keuangan lainnya dengan tanggal custom.
+                </p>
+            </div>
+            <form id="form-keuangan">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tanggal-keuangan">📅 Tanggal Transaksi</label>
+                        <input type="date" id="tanggal-keuangan" required autocomplete="off">
+                        <small>
+                            💡 Pilih tanggal sesuai kapan transaksi keuangan sebenarnya terjadi
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="keterangan">📝 Keterangan</label>
+                        <input type="text" id="keterangan" required placeholder="Modal tambahan, biaya operasional, dll" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="tipe">🔄 Tipe</label>
+                        <select id="tipe" required>
+                            <option value="">Pilih Tipe...</option>
+                            <option value="Masuk">💰 Pemasukan</option>
+                            <option value="Keluar">💸 Pengeluaran</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="jumlah">💵 Jumlah</label>
+                        <input type="text" id="jumlah" required placeholder="1.000.000" autocomplete="off" class="currency-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="ref-no">🔗 No. Referensi (Opsional)</label>
+                        <input type="text" id="ref-no" placeholder="REF001, MODAL-001, dll" autocomplete="off">
+                    </div>
+                </div>
+                <button type="submit" class="btn" id="btn-keuangan">💾 Simpan Keuangan</button>
+            </form>
+        </div>
+
+        <div class="loading">
+            <div class="spinner"></div>
+            Menyimpan data...
+        </div>
+
+        <!-- API Info - Bottom -->
+        <div style="text-align: center; margin-top: 2rem; padding: 0.5rem; color: var(--text-secondary); font-size: 0.7rem; opacity: 0.7; word-break: break-all;">
+            🔗 API: <span id="api-url-display">Loading...</span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            API_URL: 'https://script.google.com/macros/s/AKfycbz-5X4EquhuyNhs-GxpAytmEvrzJNvvcXPKOPZwB7mJzaWtJ1pHSUcuRaihlcGSkE2Ncw/exec'
+        };
+
+        let masterData = { produk: [], cabang: [] };
+        let averageCosts = {};
+        let currentStock = {};
+        let hasProductIDSystem = false;
+        
+        // Anti-duplicate system
+        let pendingRequests = new Set();
+        let recentSubmissions = [];
+        let currentDuplicateData = null;
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, initializing Product_ID system...');
+            loadTheme();
+            initializeApp();
+            initializeEventListeners();
+            loadPendingRequests();
+        });
+
+        function initializeApp() {
+            console.log('Initializing app with Product_ID support...');
+            document.getElementById('api-url-display').textContent = CONFIG.API_URL;
+            
+            setDefaultDates();
+            checkConnection();
+            loadMasterData();
+            
+            setTimeout(() => {
+                console.log('Loading average costs and stock data...');
+                loadAverageCosts();
+                loadCurrentStock();
+            }, 1500);
+        }
+
+        function setDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('tanggal-masuk').value = today;
+            document.getElementById('tanggal-keluar').value = today;
+            document.getElementById('tanggal-keuangan').value = today;
+        }
+
+        function initializeEventListeners() {
+            // Enhanced currency input formatting
+            document.getElementById('harga-masuk').addEventListener('input', function(e) {
+                formatCurrencyInput(e.target);
+                calculateTotalMasuk();
+            });
+            
+            document.getElementById('harga-keluar').addEventListener('input', function(e) {
+                formatCurrencyInput(e.target);
+                calculateTotalKeluar();
+            });
+            
+            document.getElementById('jumlah').addEventListener('input', function(e) {
+                formatCurrencyInput(e.target);
+            });
+
+            // Auto calculate totals
+            document.getElementById('qty-masuk').addEventListener('input', calculateTotalMasuk);
+            document.getElementById('produk-masuk').addEventListener('change', function() {
+                updateProductInfo('masuk', this.value);
+                const selected = this.options[this.selectedIndex];
+                if (selected.dataset.harga) {
+                    const formattedPrice = formatRupiahInput(selected.dataset.harga);
+                    document.getElementById('harga-masuk').value = formattedPrice;
+                    calculateTotalMasuk();
+                }
+            });
+
+            document.getElementById('qty-keluar').addEventListener('input', function() {
+                validateStockQuantity();
+                calculateTotalKeluar();
+            });
+            
+            document.getElementById('produk-keluar').addEventListener('change', function() {
+                updateProductInfo('keluar', this.value);
+                updateKeluarPricing(this.value);
+                updateStockInfo(this.value);
+            });
+
+            // Form submissions with anti-duplicate protection
+            document.getElementById('form-masuk').addEventListener('submit', handleFormMasukWithProtection);
+            document.getElementById('form-keluar').addEventListener('submit', handleFormKeluarWithProtection);
+            document.getElementById('form-keuangan').addEventListener('submit', handleFormKeuanganWithProtection);
+        }
+
+        // ========== ENHANCED CURRENCY FORMATTING ==========
+        
+        function formatCurrencyInput(input) {
+            // Get current value and remove all non-digits
+            let value = input.value.replace(/\D/g, '');
+            
+            // If empty, clear the field
+            if (!value) {
+                input.value = '';
+                return;
+            }
+            
+            // Convert to number and format with thousand separators
+            const numericValue = parseInt(value);
+            const formattedValue = numericValue.toLocaleString('id-ID');
+            
+            // Set the formatted value
+            input.value = formattedValue;
+        }
+        
+        function formatRupiahInput(amount) {
+            // Format number for input field (with thousand separators but no "Rp")
+            const numericAmount = typeof amount === 'string' ? parseInt(amount.replace(/\D/g, '')) : amount;
+            return numericAmount.toLocaleString('id-ID');
+        }
+        
+        function formatRupiah(amount) {
+            // Format for display (with "Rp" prefix)
+            const numericAmount = typeof amount === 'string' ? parseInt(amount.replace(/\D/g, '')) : amount;
+            return 'Rp ' + numericAmount.toLocaleString('id-ID');
+        }
+        
+        function parseCurrencyInput(value) {
+            // Parse formatted input back to number
+            if (!value) return 0;
+            return parseInt(value.replace(/\D/g, '')) || 0;
+        }
+
+        // ========== PRODUCT_ID SYSTEM FUNCTIONS ==========
+
+        async function setupProductIDs() {
+            const setupBtn = document.querySelector('.setup-btn');
+            const originalText = setupBtn.textContent;
+            
+            setupBtn.disabled = true;
+            setupBtn.textContent = '🔄 Setting up...';
+            
+            try {
+                const result = await makeJSONPRequestWithRetry('setupProductIDs');
+                
+                if (result && result.success) {
+                    showAlert('✅ ' + result.message, 'success');
+                    document.getElementById('setup-banner').style.display = 'none';
+                    hasProductIDSystem = true;
+                    
+                    // Reload master data
+                    setTimeout(() => {
+                        loadMasterData();
+                    }, 1000);
+                } else {
+                    showAlert('❌ Setup failed: ' + (result?.message || 'Unknown error'), 'danger');
+                }
+            } catch (error) {
+                showAlert('❌ Setup error: ' + error.message, 'danger');
+            } finally {
+                setupBtn.disabled = false;
+                setupBtn.textContent = originalText;
+            }
+        }
+
+        function updateProductInfo(type, productReference) {
+            const infoElement = document.getElementById(`product-info-${type}`);
+            
+            if (!productReference) {
+                infoElement.textContent = 'Pilih produk untuk melihat info';
+                return;
+            }
+            
+            // Find product info from master data
+            const produk = masterData.produk.find(p => {
+                if (hasProductIDSystem) {
+                    return p[0] === productReference || p[1] === productReference; // Check both Product_ID and Kode
+                } else {
+                    return p[0] === productReference; // Legacy: check Kode only
+                }
+            });
+            
+            if (produk) {
+                if (hasProductIDSystem) {
+                    const productID = produk[0];
+                    const kode = produk[1];
+                    const nama = produk[2];
+                    infoElement.textContent = `🆔 ${productID} | 📋 ${kode} - ${nama}`;
+                } else {
+                    const kode = produk[0];
+                    const nama = produk[1];
+                    infoElement.textContent = `📋 ${kode} - ${nama}`;
+                }
+            } else {
+                infoElement.textContent = 'Produk tidak ditemukan';
+            }
+        }
+
+        // ========== ANTI-DUPLICATE PROTECTION SYSTEM ==========
+        function generateRequestId(data, action) {
+            const dataString = JSON.stringify({ action, ...data });
+            return btoa(dataString).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+        }
+
+        function savePendingRequest(requestId, data) {
+            pendingRequests.add(requestId);
+            const pendingData = {
+                requests: Array.from(pendingRequests),
+                timestamp: Date.now()
+            };
+            localStorage.setItem('inventoryPendingRequests', JSON.stringify(pendingData));
+        }
+
+        function removePendingRequest(requestId) {
+            pendingRequests.delete(requestId);
+            const pendingData = {
+                requests: Array.from(pendingRequests),
+                timestamp: Date.now()
+            };
+            localStorage.setItem('inventoryPendingRequests', JSON.stringify(pendingData));
+        }
+
+        function loadPendingRequests() {
+            try {
+                const stored = localStorage.getItem('inventoryPendingRequests');
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    // Clear old pending requests (older than 5 minutes)
+                    if (Date.now() - data.timestamp > 5 * 60 * 1000) {
+                        localStorage.removeItem('inventoryPendingRequests');
+                        pendingRequests.clear();
+                    } else {
+                        pendingRequests = new Set(data.requests || []);
+                    }
+                }
+            } catch (error) {
+                console.log('Error loading pending requests:', error);
+                pendingRequests.clear();
+            }
+        }
+
+        function addToRecentSubmissions(data, action) {
+            const submission = {
+                id: generateRequestId(data, action),
+                data: { ...data },
+                action: action,
+                timestamp: Date.now()
+            };
+            
+            recentSubmissions.push(submission);
+            
+            // Keep only last 2 minutes of submissions
+            const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+            recentSubmissions = recentSubmissions.filter(s => s.timestamp > twoMinutesAgo);
+        }
+
+        function checkForDuplicateSubmission(data, action) {
+            const currentId = generateRequestId(data, action);
+            
+            // Check if already pending
+            if (pendingRequests.has(currentId)) {
+                return { isDuplicate: true, reason: 'Request sedang diproses' };
+            }
+            
+            // Check recent submissions (2 minutes)
+            const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+            const recentDuplicate = recentSubmissions.find(s => 
+                s.id === currentId && s.timestamp > twoMinutesAgo
+            );
+            
+            if (recentDuplicate) {
+                return { isDuplicate: true, reason: 'Data sama ditemukan dalam 2 menit terakhir' };
+            }
+            
+            return { isDuplicate: false };
+        }
+
+        function showDuplicateWarning(data, action, formId, callback) {
+            currentDuplicateData = { data, action, formId, callback };
+            document.getElementById('duplicate-warning').classList.add('show');
+        }
+
+        function cancelDuplicateSubmission() {
+            document.getElementById('duplicate-warning').classList.remove('show');
+            currentDuplicateData = null;
+        }
+
+        function forceDuplicateSubmission() {
+            document.getElementById('duplicate-warning').classList.remove('show');
+            if (currentDuplicateData) {
+                const { data, action, formId, callback } = currentDuplicateData;
+                currentDuplicateData = null;
+                callback(action, data, formId, true); // parameter urutan yang benar
+            }
+        }
+
+        // Protected form handlers
+        async function handleFormMasukWithProtection(e) {
+            e.preventDefault();
+
+            const data = {
+                tanggal: document.getElementById('tanggal-masuk').value,
+                noInvoice: document.getElementById('no-invoice').value,
+                supplier: document.getElementById('supplier').value,
+                kodeProduk: document.getElementById('produk-masuk').value, // Could be Product_ID or Kode
+                qty: parseInt(document.getElementById('qty-masuk').value),
+                harga: parseCurrencyInput(document.getElementById('harga-masuk').value)
+            };
+            
+            await submitWithDuplicateProtection('saveBarangMasuk', data, 'form-masuk');
+        }
+
+        async function handleFormKeluarWithProtection(e) {
+            e.preventDefault();
+
+            // Final validation before submission
+            const kodeProduk = document.getElementById('produk-keluar').value;
+            const requestedQty = parseInt(document.getElementById('qty-keluar').value);
+            
+            // Find stock using proper key (handle both Product_ID and legacy kode)
+            let stockKey = kodeProduk;
+            if (hasProductIDSystem) {
+                // If using Product_ID system, find the display kode for stock lookup
+                const produk = masterData.produk.find(p => p[0] === kodeProduk || p[1] === kodeProduk);
+                if (produk) {
+                    stockKey = produk[1]; // Use display kode for stock lookup
+                }
+            }
+            
+            const stock = currentStock[stockKey];
+            const availableQty = stock ? stock.sisa : 0;
+
+            if (requestedQty > availableQty) {
+                showAlert(`❌ Tidak bisa mengeluarkan ${requestedQty} pack. Stok tersedia: ${availableQty} pack`, 'danger');
+                return;
+            }
+
+            if (availableQty <= 0) {
+                showAlert('❌ Stok habis! Tidak bisa mengeluarkan barang.', 'danger');
+                return;
+            }
+
+            const data = {
+                tanggal: document.getElementById('tanggal-keluar').value,
+                noDO: document.getElementById('no-do').value,
+                kodeCabang: document.getElementById('cabang').value,
+                kodeProduk: kodeProduk, // Could be Product_ID or Kode
+                qty: requestedQty,
+                harga: parseCurrencyInput(document.getElementById('harga-keluar').value)
+            };
+            
+            await submitWithDuplicateProtection('saveBarangKeluar', data, 'form-keluar');
+        }
+
+        async function handleFormKeuanganWithProtection(e) {
+            e.preventDefault();
+
+            const data = {
+                tanggal: document.getElementById('tanggal-keuangan').value,
+                keterangan: document.getElementById('keterangan').value,
+                tipe: document.getElementById('tipe').value,
+                jumlah: parseCurrencyInput(document.getElementById('jumlah').value),
+                refNo: document.getElementById('ref-no').value
+            };
+            
+            // DEBUG - TAMBAHKAN INI
+            console.log('DEBUG FRONTEND:');
+            console.log('Tanggal yang diambil:', data.tanggal);
+            console.log('Full data:', data);
+            
+            await submitWithDuplicateProtection('saveKeuangan', data, 'form-keuangan');
+        }
+
+        async function submitWithDuplicateProtection(action, data, formId, force = false) {
+            // Check for duplicates unless forced
+            if (!force) {
+                const duplicateCheck = checkForDuplicateSubmission(data, action);
+                if (duplicateCheck.isDuplicate) {
+                    showAlert(`⚠️ ${duplicateCheck.reason}. Gunakan tombol "Submit Anyway" jika yakin.`, 'warning');
+                    showDuplicateWarning(data, action, formId, submitWithDuplicateProtection);
+                    return;
+                }
+            }
+            
+            const requestId = generateRequestId(data, action);
+            const btnId = formId.replace('form-', 'btn-');
+            const btn = document.getElementById(btnId);
+            
+            // Save as pending and update UI
+            savePendingRequest(requestId, data);
+            addToRecentSubmissions(data, action);
+            
+            btn.disabled = true;
+            btn.classList.add('processing');
+            btn.textContent = '⏳ Processing...';
+            
+            showAlert('🔄 Mengirim data, mohon tunggu...', 'info');
+            
+            try {
+                const result = await makeJSONPRequestWithRetry(action, data);
+                
+                // Remove from pending on success
+                removePendingRequest(requestId);
+                
+                if (result && result.success) {
+                    showAlert(result.message + ' ✅', 'success');
+                    document.getElementById(formId).reset();
+                    calculateTotalMasuk();
+                    calculateTotalKeluar();
+                    
+                    // Reset UI elements
+                    document.getElementById('harga-keluar-info').style.display = 'none';
+                    document.getElementById('stock-info').style.display = 'none';
+                    document.getElementById('btn-keluar').disabled = false;
+                    document.getElementById('btn-keluar').textContent = '💾 Simpan Barang Keluar';
+                    
+                    // Reset product info
+                    document.getElementById('product-info-masuk').textContent = 'Pilih produk untuk melihat info';
+                    document.getElementById('product-info-keluar').textContent = 'Pilih produk untuk melihat info';
+                    
+                    // Reload data after any transaction
+                    setTimeout(() => {
+                        if (action === 'saveBarangMasuk' || action === 'saveBarangKeluar') {
+                            loadAverageCosts();
+                            loadCurrentStock();
+                        }
+                    }, 1000);
+                } else {
+                    throw new Error(result?.message || 'Unknown error occurred');
+                }
+            } catch (error) {
+                // Remove from pending on error too
+                removePendingRequest(requestId);
+                
+                // Check if error is timeout but data might have been saved
+                if (error.message.includes('timeout') || error.message.includes('network')) {
+                    showAlert(
+                        '⚠️ Koneksi timeout! Data mungkin sudah tersimpan. Cek data di dashboard sebelum submit ulang untuk menghindari duplikasi.',
+                        'warning'
+                    );
+                } else {
+                    showAlert('❌ Error: ' + error.message, 'danger');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('processing');
+                btn.textContent = btn.textContent.replace('⏳ Processing...', btn.id.includes('masuk') ? '💾 Simpan Barang Masuk' : 
+                                                        btn.id.includes('keluar') ? '💾 Simpan Barang Keluar' : '💾 Simpan Keuangan');
+            }
+        }
+
+        // Enhanced JSONP request with retry mechanism
+        function makeJSONPRequestWithRetry(action, data = null, maxRetries = 2) {
+            return new Promise((resolve, reject) => {
+                let attempt = 0;
+                
+                function tryRequest() {
+                    attempt++;
+                    console.log(`Attempt ${attempt} for action: ${action}`);
+                    
+                    const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                    const script = document.createElement('script');
+                    let isResolved = false;
+                    
+                    // Set up callback
+                    window[callbackName] = function(response) {
+                        if (isResolved) return;
+                        isResolved = true;
+                        
+                        delete window[callbackName];
+                        if (script && script.parentNode) {
+                            document.body.removeChild(script);
+                        }
+                        resolve(response);
+                    };
+                    
+                    // Handle errors
+                    script.onerror = function() {
+                        if (isResolved) return;
+                        isResolved = true;
+                        
+                        delete window[callbackName];
+                        if (script && script.parentNode) {
+                            document.body.removeChild(script);
+                        }
+                        
+                        if (attempt < maxRetries) {
+                            console.log(`Retry attempt ${attempt + 1}...`);
+                            setTimeout(tryRequest, 2000); // Wait 2 seconds before retry
+                        } else {
+                            reject(new Error('Network error after ' + maxRetries + ' attempts'));
+                        }
+                    };
+                    
+                    // Build URL
+                    let url = `${CONFIG.API_URL}?action=${action}&callback=${callbackName}`;
+                    if (data) {
+                        url += '&data=' + encodeURIComponent(JSON.stringify(data));
+                    }
+                    
+                    script.src = url;
+                    document.body.appendChild(script);
+                    
+                    // Extended timeout for slower connections
+                    setTimeout(() => {
+                        if (!isResolved) {
+                            isResolved = true;
+                            delete window[callbackName];
+                            if (script && script.parentNode) {
+                                document.body.removeChild(script);
+                            }
+                            
+                            if (attempt < maxRetries) {
+                                console.log(`Timeout retry attempt ${attempt + 1}...`);
+                                setTimeout(tryRequest, 2000);
+                            } else {
+                                reject(new Error('Request timeout after ' + maxRetries + ' attempts'));
+                            }
+                        }
+                    }, 15000); // 15 second timeout per attempt
+                }
+                
+                tryRequest();
+            });
+        }
+
+        // Keep original makeJSONPRequest for non-critical operations
+        function makeJSONPRequest(action, data = null) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                const script = document.createElement('script');
+                let isResolved = false;
+                
+                // Set up callback dengan protection
+                window[callbackName] = function(response) {
+                    if (isResolved) return;
+                    isResolved = true;
+                    
+                    // Cleanup dengan delay untuk memastikan tidak ada race condition
+                    setTimeout(() => {
+                        if (window[callbackName]) {
+                            delete window[callbackName];
+                        }
+                        if (script && script.parentNode) {
+                            document.body.removeChild(script);
+                        }
+                    }, 100);
+                    
+                    resolve(response);
+                };
+                
+                script.onerror = function() {
+                    if (isResolved) return;
+                    isResolved = true;
+                    
+                    delete window[callbackName];
+                    if (script && script.parentNode) {
+                        document.body.removeChild(script);
+                    }
+                    reject(new Error('JSONP request failed'));
+                };
+                
+                let url = `${CONFIG.API_URL}?action=${action}&callback=${callbackName}`;
+                if (data) {
+                    url += '&data=' + encodeURIComponent(JSON.stringify(data));
+                }
+                
+                script.src = url;
+                document.body.appendChild(script);
+                
+                // Timeout dengan cleanup yang proper
+                setTimeout(() => {
+                    if (!isResolved) {
+                        isResolved = true;
+                        if (window[callbackName]) {
+                            delete window[callbackName];
+                        }
+                        if (script && script.parentNode) {
+                            document.body.removeChild(script);
+                        }
+                        reject(new Error('Request timeout'));
+                    }
+                }, 12000); // Timeout 12 detik
+            });
+        }
+
+        // Rest of the functions remain the same but updated for Product_ID support...
+        async function loadCurrentStock() {
+            try {
+                const result = await makeJSONPRequest('getDashboardData');
+
+                if (result && result.success && result.data.stok) {
+                    currentStock = {};
+                    result.data.stok.forEach(stock => {
+                        if (stock[0]) { // Use display kode as key
+                            currentStock[stock[0]] = {
+                                kode: stock[0],
+                                nama: stock[1],
+                                masuk: stock[2] || 0,
+                                keluar: stock[3] || 0,
+                                sisa: stock[4] || 0,
+                                minStok: stock[5] || 10
+                            };
+                        }
+                    });
+                    console.log('Stock data loaded:', currentStock);
+                } else {
+                    console.log('No stock data available yet');
+                    currentStock = {};
+                }
+            } catch (error) {
+                console.log('Failed to load stock data:', error.message);
+                currentStock = {};
+            }
+        }
+
+        function updateStockInfo(kodeProduk) {
+            const stockInfoDiv = document.getElementById('stock-info');
+            const availableStockSpan = document.getElementById('available-stock');
+            const minimumStockSpan = document.getElementById('minimum-stock');
+            const stockStatusSpan = document.getElementById('stock-status');
+            const qtyInput = document.getElementById('qty-keluar');
+
+            if (!kodeProduk) {
+                stockInfoDiv.style.display = 'none';
+                qtyInput.max = '';
+                qtyInput.placeholder = 'Pilih produk dulu...';
+                return;
+            }
+
+            // Find the display kode for stock lookup
+            let stockKey = kodeProduk;
+            if (hasProductIDSystem) {
+                const produk = masterData.produk.find(p => p[0] === kodeProduk || p[1] === kodeProduk);
+                if (produk) {
+                    stockKey = produk[1]; // Use display kode
+                }
+            }
+
+            const stock = currentStock[stockKey];
+            
+            if (!stock) {
+                stockInfoDiv.style.display = 'block';
+                stockInfoDiv.className = 'stock-info stock-critical';
+                availableStockSpan.textContent = '0 Pack';
+                minimumStockSpan.textContent = 'Unknown';
+                stockStatusSpan.textContent = '🔴 Belum ada data stok untuk produk ini';
+                qtyInput.max = '0';
+                qtyInput.placeholder = 'Stok kosong';
+                return;
+            }
+
+            const availableQty = stock.sisa;
+            const minStock = stock.minStok;
+
+            availableStockSpan.textContent = `${availableQty} Pack`;
+            minimumStockSpan.textContent = `${minStock} Pack`;
+            
+            qtyInput.max = availableQty;
+            qtyInput.placeholder = `Max: ${availableQty} pack`;
+
+            stockInfoDiv.style.display = 'block';
+            
+            if (availableQty <= 0) {
+                stockInfoDiv.className = 'stock-info stock-critical';
+                stockStatusSpan.textContent = '🔴 Stok habis! Tidak bisa mengeluarkan barang.';
+            } else if (availableQty <= minStock) {
+                stockInfoDiv.className = 'stock-info stock-critical';
+                stockStatusSpan.textContent = '🔴 Stok kritis! Pertimbangkan untuk restock.';
+            } else if (availableQty <= minStock * 1.5) {
+                stockInfoDiv.className = 'stock-info stock-low';
+                stockStatusSpan.textContent = '🟡 Stok rendah. Segera lakukan pembelian.';
+            } else {
+                stockInfoDiv.className = 'stock-info stock-available';
+                stockStatusSpan.textContent = '🟢 Stok tersedia cukup.';
+            }
+        }
+
+        function validateStockQuantity() {
+            const qtyInput = document.getElementById('qty-keluar');
+            const btnKeluar = document.getElementById('btn-keluar');
+            const kodeProduk = document.getElementById('produk-keluar').value;
+            
+            if (!kodeProduk) return;
+
+            const requestedQty = parseInt(qtyInput.value) || 0;
+            
+            // Find the display kode for stock lookup
+            let stockKey = kodeProduk;
+            if (hasProductIDSystem) {
+                const produk = masterData.produk.find(p => p[0] === kodeProduk || p[1] === kodeProduk);
+                if (produk) {
+                    stockKey = produk[1]; // Use display kode
+                }
+            }
+            
+            const stock = currentStock[stockKey];
+            const availableQty = stock ? stock.sisa : 0;
+
+            qtyInput.classList.remove('input-error');
+            
+            if (requestedQty > availableQty) {
+                qtyInput.classList.add('input-error');
+                btnKeluar.disabled = true;
+                btnKeluar.textContent = `❌ Stok tidak cukup (tersedia: ${availableQty})`;
+                
+                showAlert(`Quantity melebihi stok tersedia! Stok ${stockKey}: ${availableQty} pack`, 'warning');
+            } else if (requestedQty <= 0) {
+                btnKeluar.disabled = true;
+                btnKeluar.textContent = '💾 Simpan Barang Keluar';
+            } else {
+                btnKeluar.disabled = false;
+                btnKeluar.textContent = '💾 Simpan Barang Keluar';
+            }
+        }
+
+        function updateKeluarPricing(kodeProduk) {
+            const hargaKeluarInput = document.getElementById('harga-keluar');
+            const priceInfoDiv = document.getElementById('harga-keluar-info');
+            const avgPriceSpan = document.getElementById('avg-price');
+            const refPriceSpan = document.getElementById('ref-price');
+            const lastPriceSpan = document.getElementById('last-price');
+
+            if (!kodeProduk) {
+                hargaKeluarInput.value = '';
+                priceInfoDiv.style.display = 'none';
+                return;
+            }
+
+            // Find product data
+            let produk;
+            let displayKode;
+            
+            if (hasProductIDSystem) {
+                produk = masterData.produk.find(p => p[0] === kodeProduk || p[1] === kodeProduk);
+                if (produk) {
+                    displayKode = produk[1]; // Use display kode
+                }
+            } else {
+                produk = masterData.produk.find(p => p[0] === kodeProduk);
+                displayKode = kodeProduk;
+            }
+
+            const refPrice = produk ? (hasProductIDSystem ? produk[4] : produk[3]) : 0;
+            const avgData = averageCosts[displayKode];
+            
+            if (avgData && avgData.avgCost > 0) {
+                hargaKeluarInput.value = formatRupiahInput(avgData.avgCost);
+                avgPriceSpan.textContent = formatRupiah(avgData.avgCost);
+                lastPriceSpan.textContent = formatRupiah(avgData.lastPrice || 0);
+            } else {
+                hargaKeluarInput.value = formatRupiahInput(refPrice);
+                avgPriceSpan.textContent = 'Belum ada data';
+                lastPriceSpan.textContent = 'Belum ada data';
+            }
+
+            refPriceSpan.textContent = formatRupiah(refPrice);
+            priceInfoDiv.style.display = 'block';
+            
+            calculateTotalKeluar();
+        }
+
+        async function refreshStockData() {
+            showAlert('🔄 Refreshing stock data...', 'success');
+            await loadCurrentStock();
+            
+            const selectedProduct = document.getElementById('produk-keluar').value;
+            if (selectedProduct) {
+                updateStockInfo(selectedProduct);
+            }
+            
+            showAlert('✅ Stock data refreshed!', 'success');
+        }
+
+        async function checkConnection() {
+            const statusEl = document.getElementById('connection-status');
+            
+            try {
+                statusEl.className = 'connection-status';
+                statusEl.textContent = '🔄 Checking...';
+
+                const result = await makeJSONPRequest('test');
+
+                if (result && result.success) {
+                    statusEl.className = 'connection-status status-connected';
+                    statusEl.textContent = '✅ Connected';
+                } else {
+                    statusEl.className = 'connection-status status-disconnected';
+                    statusEl.textContent = '❌ API Error';
+                }
+            } catch (error) {
+                statusEl.className = 'connection-status status-disconnected';
+                statusEl.textContent = '❌ Connection Failed';
+                console.error('Connection check failed:', error);
+            }
+        }
+
+        async function loadMasterData() {
+            try {
+                const result = await makeJSONPRequest('getMasterData');
+
+                if (result && result.success) {
+                    masterData = result.data;
+                    hasProductIDSystem = result.hasProductID || false;
+                    
+                    console.log('Master data loaded. Has Product_ID:', hasProductIDSystem);
+                    console.log('Headers:', result.headers);
+                    
+                    // Show setup banner if Product_ID system not detected
+                    if (!hasProductIDSystem) {
+                        document.getElementById('setup-banner').style.display = 'block';
+                        showAlert('ℹ️ Sistem belum menggunakan Product_ID. Klik tombol setup untuk mencegah masalah sinkronisasi.', 'info');
+                    } else {
+                        document.getElementById('setup-banner').style.display = 'none';
+                        showAlert('✅ System Product_ID aktif - Data terlindungi dari masalah sinkronisasi!', 'success');
+                    }
+                    
+                    populateSelects();
+                } else {
+                    showAlert('Error loading master data: ' + (result?.message || 'Unknown error'), 'danger');
+                }
+            } catch (error) {
+                showAlert('Failed to load master data: ' + error.message, 'danger');
+            }
+        }
+
+        async function loadAverageCosts() {
+            try {
+                const result = await makeJSONPRequest('getAverageCosts');
+
+                if (result && result.success) {
+                    averageCosts = result.data;
+                    console.log('Average costs loaded:', averageCosts);
+                    console.log('Has Product_ID in pricing:', result.hasProductID);
+                } else {
+                    console.log('No average costs data yet or error:', result?.message);
+                    averageCosts = {};
+                }
+            } catch (error) {
+                console.log('Failed to load average costs (normal if no transactions yet):', error.message);
+                averageCosts = {};
+            }
+        }
+
+        function populateSelects() {
+            const produkMasuk = document.getElementById('produk-masuk');
+            const produkKeluar = document.getElementById('produk-keluar');
+            
+            produkMasuk.innerHTML = '<option value="">Pilih Produk...</option>';
+            produkKeluar.innerHTML = '<option value="">Pilih Produk...</option>';
+            
+            masterData.produk.forEach(produk => {
+                let optionValue, optionText, hargaRef;
+                
+                if (hasProductIDSystem) {
+                    // Product_ID system: use Product_ID as value, show both ID and kode in text
+                    optionValue = produk[0]; // Product_ID
+                    const kode = produk[1];
+                    const nama = produk[2];
+                    const kemasan = produk[3];
+                    hargaRef = produk[4];
+                    optionText = `${produk[0]} | ${kode} - ${nama} (${kemasan}) - Ref: ${formatRupiah(hargaRef)}`;
+                } else {
+                    // Legacy system: use kode as value
+                    optionValue = produk[0]; // Kode
+                    const nama = produk[1];
+                    const kemasan = produk[2];
+                    hargaRef = produk[3];
+                    optionText = `${produk[0]} - ${nama} (${kemasan}) - Ref: ${formatRupiah(hargaRef)}`;
+                }
+                
+                const option = `<option value="${optionValue}" data-harga="${hargaRef}">${optionText}</option>`;
+                produkMasuk.innerHTML += option;
+                produkKeluar.innerHTML += option;
+            });
+
+            const cabang = document.getElementById('cabang');
+            cabang.innerHTML = '<option value="">Pilih Cabang...</option>';
+            
+            masterData.cabang.forEach(cab => {
+                cabang.innerHTML += `<option value="${cab[0]}">${cab[0]} - ${cab[1]}</option>`;
+            });
+        }
+
+        function calculateTotalMasuk() {
+            const qty = parseInt(document.getElementById('qty-masuk').value) || 0;
+            const harga = parseCurrencyInput(document.getElementById('harga-masuk').value);
+            document.getElementById('total-masuk').value = formatRupiah(qty * harga);
+        }
+
+        function calculateTotalKeluar() {
+            const qty = parseInt(document.getElementById('qty-keluar').value) || 0;
+            const harga = parseCurrencyInput(document.getElementById('harga-keluar').value);
+            document.getElementById('total-keluar').value = formatRupiah(qty * harga);
+        }
+
+        function showAlert(message, type) {
+            const container = document.getElementById('alert-container');
+            const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'info' ? 'ℹ️' : '❌';
+            container.innerHTML = `<div class="alert alert-${type}">${icon} ${message}</div>`;
+            
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        function showLoading(show) {
+            document.querySelector('.loading').style.display = show ? 'block' : 'none';
+            document.querySelectorAll('.btn').forEach(btn => {
+                btn.disabled = show;
+            });
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'barang-keluar') {
+                loadCurrentStock();
+            }
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const themeBtn = document.querySelector('.theme-switch');
+            
+            if (body.getAttribute('data-theme') === 'light') {
+                body.setAttribute('data-theme', 'dark');
+                themeBtn.innerHTML = '☀️ Light';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.setAttribute('data-theme', 'light');
+                themeBtn.innerHTML = '🌙 Dark';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.body.setAttribute('data-theme', savedTheme);
+            const themeBtn = document.querySelector('.theme-switch');
+            if (themeBtn) {
+                themeBtn.innerHTML = savedTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+            }
+        }
+    </script>
+</body>
+</html>
