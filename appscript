@@ -161,6 +161,98 @@ function createCORSResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ========== DB SYNC (push Google Sheet data to MySQL on rt.umami.my.id) ==========
+
+const DB_SYNC_URL = 'https://rt.umami.my.id/api/sync.php';
+const DB_SYNC_SECRET = 'CHANGE_ME_TO_A_LONG_RANDOM_STRING'; // must match SYNC_SECRET in server/db.php
+
+// Build the full payload (raw sheet rows) sent to sync.php
+function gatherSyncPayload(ss) {
+  const produkSheet = ss.getSheetByName('MASTER_PRODUK');
+  const cabangSheet = ss.getSheetByName('MASTER_CABANG');
+  const masukSheet = ss.getSheetByName('BARANG_MASUK');
+  const keluarSheet = ss.getSheetByName('BARANG_KELUAR');
+  const keuanganSheet = ss.getSheetByName('KEUANGAN');
+  const stokSheet = ss.getSheetByName('STOK_REAL');
+
+  const payload = { secret: DB_SYNC_SECRET };
+
+  if (produkSheet) payload.masterProduk = produkSheet.getDataRange().getValues().slice(3);
+  if (cabangSheet) payload.masterCabang = cabangSheet.getDataRange().getValues().slice(2);
+  if (masukSheet) payload.barangMasuk = masukSheet.getDataRange().getValues().slice(2);
+  if (keluarSheet) payload.barangKeluar = keluarSheet.getDataRange().getValues().slice(2);
+  if (keuanganSheet) payload.keuangan = keuanganSheet.getDataRange().getValues().slice(2);
+  if (stokSheet) payload.stokReal = stokSheet.getDataRange().getValues().slice(2);
+
+  return payload;
+}
+
+// Push the full current state of the sheets to the MySQL database.
+// Called instantly after a save (input.html flow), from the onEdit
+// installable trigger (manual edits in the sheet), and from the
+// time-driven trigger as a safety net.
+function pushFullSyncToDB() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const payload = gatherSyncPayload(ss);
+
+    const response = UrlFetchApp.fetch(DB_SYNC_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    console.log('pushFullSyncToDB response:', response.getContentText());
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    console.error('pushFullSyncToDB error:', error);
+    return { success: false, message: error.toString() };
+  }
+}
+
+// Installable onEdit trigger handler (simple onEdit() can't call UrlFetchApp,
+// so this must be wired up via installSyncTriggers(), not auto-detected by name).
+function handleEditSync(e) {
+  try {
+    const sheetName = e.range.getSheet().getName();
+    const syncedSheets = ['MASTER_PRODUK', 'MASTER_CABANG', 'BARANG_MASUK', 'BARANG_KELUAR', 'KEUANGAN', 'STOK_REAL'];
+
+    if (syncedSheets.includes(sheetName)) {
+      console.log(`Manual edit detected in ${sheetName}, syncing to DB...`);
+      pushFullSyncToDB();
+    }
+  } catch (error) {
+    console.error('handleEditSync error:', error);
+  }
+}
+
+// ONE-TIME SETUP: run this manually from the Apps Script editor (select
+// installSyncTriggers in the function dropdown and click Run) to install
+// the installable onEdit trigger plus a 5-minute time-driven safety-net sync.
+function installSyncTriggers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    const handler = trigger.getHandlerFunction();
+    if (handler === 'handleEditSync' || handler === 'pushFullSyncToDB') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp.newTrigger('handleEditSync')
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+
+  ScriptApp.newTrigger('pushFullSyncToDB')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+
+  Browser.msgBox('Sync Triggers Installed', 'onEdit + 5-minute time-driven sync to DB sudah aktif.', Browser.Buttons.OK);
+}
+
 // ========== MENU SYSTEM (OTOMATIS MUNCUL DI GOOGLE SHEETS) ==========
 
 // ========== PRODUCT_ID SYSTEM FUNCTIONS ==========
@@ -919,12 +1011,14 @@ function saveBarangMasukWithID(data) {
     simpleFormat('KEUANGAN', lastKeuanganRow);
     
     updateStokRealOptimized();
-    
-    return { 
-      success: true, 
-      message: `Barang masuk berhasil disimpan! Product: ${productCode}, Waktu: ${transactionDate}` 
+
+    pushFullSyncToDB();
+
+    return {
+      success: true,
+      message: `Barang masuk berhasil disimpan! Product: ${productCode}, Waktu: ${transactionDate}`
     };
-    
+
   } catch (error) {
     return { success: false, message: 'Error: ' + error.toString() };
   }
@@ -1005,10 +1099,12 @@ function saveBarangKeluarWithID(data) {
     simpleFormat('KEUANGAN', lastKeuanganRow);
     
     updateStokRealOptimized();
-    
-    return { 
-      success: true, 
-      message: `Barang keluar berhasil disimpan! Product: ${productCode}, Waktu: ${transactionDate}` 
+
+    pushFullSyncToDB();
+
+    return {
+      success: true,
+      message: `Barang keluar berhasil disimpan! Product: ${productCode}, Waktu: ${transactionDate}`
     };
     
   } catch (error) {
@@ -1039,10 +1135,12 @@ function saveKeuangan(data) {
     
     const lastRow = keuanganSheet.getLastRow();
     simpleFormat('KEUANGAN', lastRow);
-    
-    return { 
-      success: true, 
-      message: `Keuangan saved! Waktu: ${transactionDate}` 
+
+    pushFullSyncToDB();
+
+    return {
+      success: true,
+      message: `Keuangan saved! Waktu: ${transactionDate}`
     };
     
   } catch (error) {
@@ -2655,6 +2753,9 @@ function onOpen() {
   ui.createMenu('🛠️ Data Management')
     .addItem('🆔 Setup Product_ID System', 'setupProductIDSystem')
     .addItem('🔄 Migrate Existing Data', 'migrateExistingData')
+    .addSeparator()
+    .addItem('🔌 Install DB Sync Triggers (run once)', 'installSyncTriggers')
+    .addItem('☁️ Sync Now to DB', 'pushFullSyncToDB')
     .addSeparator()
     .addItem('📅 Sort Transactions by Date', 'manualSortTransactions')  // <-- BARU!
     .addItem('📊 Sort BARANG_MASUK by Date', 'sortBarangMasukByDate')
